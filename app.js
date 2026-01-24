@@ -1,18 +1,11 @@
-/* app.js
-   - Uses Dexie.js for indexedDB storage
-   - Handles add/edit/list of expenditures
-   - Settings stored as key/value
-   - Savings planner calculation
-*/
-
-const db = new Dexie('housesave_db');
+// app.js — mobile-first UI with Dexie storage
+const db = new Dexie('budgetr_db');
 db.version(1).stores({
-  expenditures: '++id, desc, amount, category, priority, date',
+  expenditures: '++id, description, amount, category, priority, date, created_at',
   settings: 'key'
 });
 
-// simple settings helper
-async function getSetting(key, fallback=null){
+async function getSetting(key, fallback = null){
   const row = await db.settings.get(key);
   return row ? row.value : fallback;
 }
@@ -20,218 +13,251 @@ async function setSetting(key, value){
   await db.settings.put({key, value});
 }
 
-const el = {
-  monthlyExpenses: document.getElementById('monthlyExpenses'),
-  netIncome: document.getElementById('netIncome'),
-  availableMonthly: document.getElementById('availableMonthly'),
-  currentSavings: document.getElementById('currentSavings'),
-  categoryBreakdown: document.getElementById('categoryBreakdown'),
-  entryForm: document.getElementById('entryForm'),
-  list: document.getElementById('list'),
-  exportBtn: document.getElementById('exportBtn'),
-  importBtn: document.getElementById('importBtn'),
-  importFile: document.getElementById('importFile'),
-  openSettingsBtn: document.getElementById('openSettingsBtn'),
-  settingsModal: document.getElementById('settingsModal'),
-  settingNetIncome: document.getElementById('settingNetIncome'),
-  settingCurrentSavings: document.getElementById('settingCurrentSavings'),
-  saveSettingsBtn: document.getElementById('saveSettingsBtn'),
-  closeSettingsBtn: document.getElementById('closeSettingsBtn'),
-  calcGoalBtn: document.getElementById('calcGoalBtn'),
-  goalAmount: document.getElementById('goalAmount'),
-  goalDate: document.getElementById('goalDate'),
-  useAvgMonthlyExpenses: document.getElementById('useAvgMonthlyExpenses'),
-  planResult: document.getElementById('planResult')
+/* DOM */
+const views = {
+  dashboard: document.getElementById('view-dashboard'),
+  expenditures: document.getElementById('view-expenditures'),
+  goals: document.getElementById('view-goals')
 };
+const navBtns = document.querySelectorAll('.nav-btn');
+const addFab = document.getElementById('addFab');
+const addOverlay = document.getElementById('addOverlay');
+const addForm = document.getElementById('addForm');
 
-async function refreshDashboard(){
-  const net = parseFloat(await getSetting('netMonthly') || 0);
-  const saved = parseFloat(await getSetting('currentSavings') || 0);
+const totalSpentEl = document.getElementById('totalSpent');
+const netIncomeEl = document.getElementById('netIncome');
+const remainingEl = document.getElementById('remaining');
+const categoryListEl = document.getElementById('categoryList');
+const recentListEl = document.getElementById('recentList');
+const expListEl = document.getElementById('expList');
+const searchInput = document.getElementById('searchInput');
 
-  const monthlyAvg = await computeAverageMonthlyExpenses();
-  const available = Math.max(0, net - monthlyAvg);
+const goalAmount = document.getElementById('goalAmount');
+const goalDate = document.getElementById('goalDate');
+const calcGoalBtn = document.getElementById('calcGoal');
+const goalResult = document.getElementById('goalResult');
+const useAvg = document.getElementById('useAvg');
 
-  el.monthlyExpenses.textContent = formatMoney(monthlyAvg);
-  el.netIncome.textContent = formatMoney(net);
-  el.availableMonthly.textContent = formatMoney(available);
-  el.currentSavings.textContent = formatMoney(saved);
-
-  renderCategoryBreakdown();
-  renderList();
+/* Navigation */
+function showView(name){
+  Object.values(views).forEach(v => v.classList.remove('active'));
+  document.querySelector(`#view-${name}`).classList.add('active');
+  navBtns.forEach(b => b.classList.toggle('active', b.dataset.view === name));
+  // refresh when switching
+  if(name === 'dashboard') refreshDashboard();
+  if(name === 'expenditures') renderExpenditures();
 }
 
-function formatMoney(n){
-  return `$${Number(n || 0).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}`;
+/* Nav buttons */
+navBtns.forEach(b => {
+  b.addEventListener('click', () => showView(b.dataset.view));
+});
+
+/* FAB opens add overlay */
+addFab.addEventListener('click', () => openAdd());
+
+function openAdd(){
+  addOverlay.classList.remove('hidden');
+  addOverlay.setAttribute('aria-hidden','false');
+}
+document.getElementById('cancelAdd').addEventListener('click', closeAdd);
+function closeAdd(){
+  addForm.reset();
+  addOverlay.classList.add('hidden');
+  addOverlay.setAttribute('aria-hidden','true');
 }
 
-// compute average monthly expenses across the time range of data
-async function computeAverageMonthlyExpenses(){
-  const items = await db.expenditures.toArray();
-  if(items.length === 0) return 0;
-  // find first entry and last entry months
-  const dates = items.map(i => new Date(i.date || i.ts || Date.now()));
-  const minDate = new Date(Math.min(...dates.map(d=>d.getTime())));
-  const maxDate = new Date(Math.max(...dates.map(d=>d.getTime())));
-  const months = monthsBetweenInclusive(minDate, maxDate);
-  const total = items.reduce((s,i)=>s + Number(i.amount || 0), 0);
-  const monthsCount = Math.max(1, months);
-  return total / monthsCount;
-}
-
-function monthsBetweenInclusive(a, b){
-  // approximate number of months between two dates, inclusive of both endpoints
-  const ay = a.getFullYear(), am = a.getMonth();
-  const by = b.getFullYear(), bm = b.getMonth();
-  return Math.abs((by - ay) * 12 + (bm - am)) + 1;
-}
-
-async function renderCategoryBreakdown(){
-  const items = await db.expenditures.toArray();
-  const map = {};
-  items.forEach(it=>{
-    const cat = it.category || 'Uncategorized';
-    map[cat] = (map[cat] || 0) + Number(it.amount || 0);
-  });
-  el.categoryBreakdown.innerHTML = '';
-  Object.keys(map).sort((a,b)=>map[b]-map[a]).forEach(cat=>{
-    const div = document.createElement('div');
-    div.className = 'chip';
-    div.textContent = `${cat} — ${formatMoney(map[cat])}`;
-    el.categoryBreakdown.appendChild(div);
-  });
-}
-
-async function renderList(){
-  const items = await db.expenditures.orderBy('priority').then(all=>all.sort((a,b)=>a.priority - b.priority));
-  el.list.innerHTML = '';
-  items.slice().reverse().forEach(it=>{ // recent first visually
-    const li = document.createElement('li');
-    const left = document.createElement('div');
-    left.innerHTML = `<strong>${it.desc}</strong><div class="meta">${it.category} · priority ${it.priority} · ${new Date(it.date || it.ts).toLocaleDateString()}</div>`;
-    const right = document.createElement('div');
-    right.innerHTML = `<div>${formatMoney(it.amount)}</div><div><button data-id="${it.id}" class="delBtn">Delete</button></div>`;
-    li.appendChild(left); li.appendChild(right);
-    el.list.appendChild(li);
-  });
-}
-
-// add entry
-el.entryForm.addEventListener('submit', async (e)=>{
+/* Add form submit */
+addForm.addEventListener('submit', async (e) => {
   e.preventDefault();
-  const desc = document.getElementById('desc').value.trim();
-  const amount = parseFloat(document.getElementById('amount').value || 0);
-  const category = document.getElementById('category').value.trim() || 'Uncategorized';
-  const priority = parseInt(document.getElementById('priority').value || 99);
-  const date = document.getElementById('date').value ? new Date(document.getElementById('date').value).toISOString() : new Date().toISOString();
-  if(!desc || !amount) return alert('Please add description and amount.');
-  await db.expenditures.add({desc, amount, category, priority, date, ts: Date.now()});
-  el.entryForm.reset();
+  const desc = document.getElementById('fDesc').value.trim();
+  const amount = parseFloat(document.getElementById('fAmount').value || 0);
+  const date = document.getElementById('fDate').value ? new Date(document.getElementById('fDate').value).toISOString() : new Date().toISOString();
+  const category = document.getElementById('fCategory').value.trim() || 'Uncategorized';
+  const priority = parseInt(document.getElementById('fPriority').value || 99);
+  if(!desc || !amount) return alert('Please add description and amount');
+  await db.expenditures.add({ description: desc, amount, category, priority, date, created_at: new Date().toISOString() });
+  closeAdd();
   refreshDashboard();
+  renderExpenditures();
 });
 
-// delete handler (event delegation)
-el.list.addEventListener('click', async (e)=>{
-  if(e.target.matches('.delBtn')){
-    const id = Number(e.target.dataset.id);
-    if(confirm('Delete this entry?')) {
-      await db.expenditures.delete(id);
-      refreshDashboard();
-    }
+/* Compute totals and render dashboard */
+async function refreshDashboard(){
+  const items = await db.expenditures.toArray();
+  const total = items.reduce((s,i) => s + Number(i.amount || 0), 0);
+  totalSpentEl.textContent = formatMoney(total);
+
+  const net = parseFloat(await getSetting('netMonthly') || 0);
+  netIncomeEl.textContent = formatMoney(net);
+
+  const avgMonthly = computeAvgMonthly(items);
+  const remaining = Math.max(0, net - avgMonthly);
+  remainingEl.textContent = formatMoney(remaining);
+
+  renderCategory(items);
+  renderRecent(items);
+}
+
+/* category breakdown */
+function renderCategory(items){
+  const map = {};
+  items.forEach(it => {
+    const c = it.category || 'Uncategorized';
+    map[c] = (map[c] || 0) + Number(it.amount || 0);
+  });
+  const entries = Object.entries(map).sort((a,b)=>b[1]-a[1]);
+  categoryListEl.innerHTML = '';
+  const total = entries.reduce((s,e)=>s+e[1],0) || 1;
+  entries.forEach(([cat,amt]) => {
+    const pct = Math.round((amt/total)*100);
+    const row = document.createElement('div');
+    row.className = 'cat-row';
+    row.innerHTML = `
+      <div class="cat-left">
+        <div class="cat-dot" style="background:linear-gradient(90deg,#1e90ff,#3ddc84)"></div>
+        <div>
+          <div class="cat-name">${escapeHtml(cat)}</div>
+          <div class="progress">
+            <div class="progress-inner" style="width:${pct}%"></div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="cat-amount">${formatMoney(amt)}</div>
+        <div class="meta" style="font-size:12px;color:var(--muted)">${pct}%</div>
+      </div>
+    `;
+    categoryListEl.appendChild(row);
+  });
+  if(entries.length===0){
+    categoryListEl.innerHTML = `<div class="chip">No expenditures yet</div>`;
   }
-});
+}
 
-// export
-el.exportBtn.addEventListener('click', async ()=>{
-  const allEx = await db.expenditures.toArray();
-  const settings = await db.settings.toArray();
-  const data = {expenditures: allEx, settings};
-  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = `housesave-backup-${new Date().toISOString().slice(0,10)}.json`; a.click();
-  URL.revokeObjectURL(url);
-});
+/* Recent list */
+function renderRecent(items){
+  const sorted = items.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,6);
+  recentListEl.innerHTML = '';
+  sorted.forEach(it => {
+    const li = document.createElement('li');
+    li.className = 'recent-item';
+    li.innerHTML = `
+      <div class="exp-meta">
+        <div class="exp-title">${escapeHtml(it.description)}</div>
+        <div class="exp-sub"><span class="chip">${escapeHtml(it.category)}</span><span class="exp-date">${new Date(it.date).toLocaleDateString()}</span><span class="chip">Priority ${it.priority}</span></div>
+      </div>
+      <div class="amount">${formatMoney(it.amount)}</div>
+    `;
+    recentListEl.appendChild(li);
+  });
+  if(sorted.length===0){
+    recentListEl.innerHTML = `<div class="chip">No recent expenses</div>`;
+  }
+}
 
-// import
-el.importBtn.addEventListener('click', ()=> el.importFile.click());
-el.importFile.addEventListener('change', async e=>{
-  const f = e.target.files[0];
-  if(!f) return;
-  const text = await f.text();
-  try {
-    const parsed = JSON.parse(text);
-    if(parsed.expenditures){
-      // replace strategy: clear and import
-      await db.expenditures.clear();
-      await db.expenditures.bulkAdd(parsed.expenditures.map(it=>{
-        // ensure shape
-        return {
-          desc: it.desc,
-          amount: Number(it.amount || 0),
-          category: it.category || 'Uncategorized',
-          priority: Number(it.priority || 99),
-          date: it.date || it.ts || new Date().toISOString(),
-          ts: it.ts || Date.now()
-        };
-      }));
-    }
-    if(parsed.settings){
-      await db.settings.clear();
-      for(const s of parsed.settings){
-        await db.settings.put({key: s.key, value: s.value});
+/* Expenditures view rendering */
+async function renderExpenditures(){
+  const q = (searchInput.value || '').toLowerCase().trim();
+  let items = await db.expenditures.orderBy('priority').toArray();
+  if(q) items = items.filter(it => (it.description||'').toLowerCase().includes(q) || (it.category||'').toLowerCase().includes(q));
+  expListEl.innerHTML = '';
+  if(items.length===0){
+    expListEl.innerHTML = `<div class="chip">No expenditures</div>`;
+    return;
+  }
+  items.forEach(it => {
+    const li = document.createElement('li');
+    li.className = 'exp-item';
+    li.innerHTML = `
+      <div style="display:flex;flex-direction:column">
+        <div class="exp-title">${escapeHtml(it.description)}</div>
+        <div class="exp-sub"><span class="chip">${escapeHtml(it.category)}</span><span class="exp-date">${new Date(it.date).toLocaleDateString()}</span></div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
+        <div class="amount">${formatMoney(it.amount)}</div>
+        <div style="display:flex;gap:8px">
+          <button data-id="${it.id}" class="btn small del">Delete</button>
+        </div>
+      </div>
+    `;
+    expListEl.appendChild(li);
+  });
+
+  // attach delete events
+  document.querySelectorAll('.del').forEach(btn => {
+    btn.onclick = async (e) => {
+      const id = Number(e.currentTarget.dataset.id);
+      if(confirm('Delete this entry?')) {
+        await db.expenditures.delete(id);
+        refreshDashboard();
+        renderExpenditures();
       }
-    }
-    alert('Import completed');
-    refreshDashboard();
-  } catch(err){
-    alert('Invalid JSON');
-  }
-});
+    };
+  });
+}
 
-// Settings modal
-el.openSettingsBtn.addEventListener('click', async ()=>{
-  el.settingsModal.setAttribute('aria-hidden', 'false');
-  el.settingNetIncome.value = await getSetting('netMonthly') || '';
-  el.settingCurrentSavings.value = await getSetting('currentSavings') || '';
-});
-el.closeSettingsBtn.addEventListener('click', ()=> el.settingsModal.setAttribute('aria-hidden','true'));
-el.saveSettingsBtn.addEventListener('click', async ()=>{
-  const net = parseFloat(el.settingNetIncome.value || 0);
-  const saved = parseFloat(el.settingCurrentSavings.value || 0);
-  await setSetting('netMonthly', net);
-  await setSetting('currentSavings', saved);
-  el.settingsModal.setAttribute('aria-hidden','true');
+/* Search input */
+searchInput?.addEventListener('input', () => renderExpenditures());
+
+/* Utility: compute average monthly total across months represented */
+function computeAvgMonthly(items){
+  if(!items || items.length===0) return 0;
+  const dates = items.map(i => new Date(i.date || i.created_at));
+  const min = new Date(Math.min(...dates.map(d=>d.getTime())));
+  const max = new Date(Math.max(...dates.map(d=>d.getTime())));
+  const months = Math.abs((max.getFullYear()-min.getFullYear())*12 + (max.getMonth()-min.getMonth())) + 1;
+  const total = items.reduce((s,i)=>s+Number(i.amount||0),0);
+  return total / Math.max(1, months);
+}
+
+/* Formatting */
+function formatMoney(n){
+  return `${Number(n||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`.replace(/^/, '$');
+}
+function escapeHtml(s){ return (s+'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* Settings helpers — quick small settings UI (modal simplicity) */
+document.getElementById('openSettings').addEventListener('click', async () => {
+  const currentNet = await getSetting('netMonthly') || '';
+  const currentSaved = await getSetting('currentSavings') || '';
+  const email = prompt('Set your net monthly income (number):', currentNet);
+  if(email !== null) {
+    await setSetting('netMonthly', parseFloat(email) || 0);
+  }
+  const saved = prompt('Set current savings (optional):', currentSaved);
+  if(saved !== null) await setSetting('currentSavings', parseFloat(saved) || 0);
   refreshDashboard();
 });
 
-// Planner calculations
-el.calcGoalBtn.addEventListener('click', async ()=>{
-  const goalAmount = parseFloat(el.goalAmount.value || 0);
-  const goalDateStr = el.goalDate.value;
-  if(!goalAmount || !goalDateStr) return alert('Please set a goal amount and a goal date.');
-  const goalDate = new Date(goalDateStr);
+/* Goals calculation */
+calcGoalBtn.addEventListener('click', async () => {
+  const goal = parseFloat(goalAmount.value || 0);
+  const dateStr = goalDate.value;
+  if(!goal || !dateStr) return alert('Set goal amount and date');
+  const until = new Date(dateStr);
   const now = new Date();
-  const months = monthsBetweenInclusive(now, goalDate);
-  const currentSaved = parseFloat(await getSetting('currentSavings') || 0);
-  const remaining = Math.max(0, goalAmount - currentSaved);
-  const requiredMonthly = remaining / Math.max(1, months);
-
-  const useAvg = el.useAvgMonthlyExpenses.checked;
-  const monthlyExpenses = useAvg ? await computeAverageMonthlyExpenses() : 0;
-  const netMonthly = parseFloat(await getSetting('netMonthly') || 0);
-  const available = Math.max(0, netMonthly - monthlyExpenses);
-
-  const onTrack = available >= requiredMonthly;
-
-  el.planResult.innerHTML = `
-    <div><strong>Months until goal:</strong> ${months}</div>
-    <div><strong>Remaining to save:</strong> ${formatMoney(remaining)}</div>
-    <div><strong>Required per month to hit goal:</strong> ${formatMoney(requiredMonthly)}</div>
-    <div><strong>Estimated available per month:</strong> ${formatMoney(available)}</div>
-    <div style="margin-top:8px;"><strong>${onTrack ? 'Good — you\'re on track ✅' : 'Shortfall — consider trimming lower-priority items or increasing savings'}</strong></div>
-    ${!onTrack ? `<div style="margin-top:6px">Shortfall per month: ${formatMoney(requiredMonthly - available)}</div>` : ''}
+  const months = Math.max(1, Math.abs((until.getFullYear()-now.getFullYear())*12 + (until.getMonth()-now.getMonth())));
+  const saved = parseFloat(await getSetting('currentSavings') || 0);
+  const remaining = Math.max(0, goal - saved);
+  const required = remaining / months;
+  const items = await db.expenditures.toArray();
+  const avgMonthly = useAvg.checked ? computeAvgMonthly(items) : 0;
+  const net = parseFloat(await getSetting('netMonthly') || 0);
+  const available = Math.max(0, net - avgMonthly);
+  goalResult.innerHTML = `
+    <div>Months: ${months}</div>
+    <div>Remaining: ${formatMoney(remaining)}</div>
+    <div>Required / month: ${formatMoney(required)}</div>
+    <div>Estimated available / month: ${formatMoney(available)}</div>
+    <div style="margin-top:8px;font-weight:700">${available >= required ? 'On track ✅' : 'Shortfall — consider trimming'}</div>
   `;
 });
 
-// initial load
+/* initial load */
 refreshDashboard();
+renderExpenditures();
+
+/* simple live UI update on DB changes */
+db.expenditures.hook('creating', ()=>{ setTimeout(()=>{refreshDashboard(); renderExpenditures();}, 80); });
+db.expenditures.hook('deleting', ()=>{ setTimeout(()=>{refreshDashboard(); renderExpenditures();}, 80); });
