@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>HouseSave</title>
+
+  <!-- PWA manifest -->
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#2E8B57" />
+  <!-- Apple meta (improves look when saved to Home Screen) -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+  <link rel="stylesheet" href="/styles.css">
+
+  <!-- Dexie (IndexedDB wrapper) -->
+  <script src="https://unpkg.com/dexie@3.2.2/dist/dexie.min.js"></script>
+</head>
+<body>
+  <header>
+    <h1>HouseSave</h1>
+    <div class="header-actions">
+      <button id="openSettingsBtn">Settings</button>
+      <button id="exportBtn">Export</button>
+      <input id="importFile" type="file" accept="application/json" style="display:none">
+      <button id="importBtn">Import</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="dashboard" class="card">
+      <h2>Dashboard</h2>
+      <div class="dashboard-grid">
+        <div class="panel">
+          <strong id="monthlyExpenses">$0.00</strong>
+          <div class="label">Avg Monthly Expenses</div>
+        </div>
+        <div class="panel">
+          <strong id="netIncome">$0.00</strong>
+          <div class="label">Net Monthly Income</div>
+        </div>
+        <div class="panel">
+          <strong id="availableMonthly">$0.00</strong>
+          <div class="label">Available Monthly (income − expenses)</div>
+        </div>
+        <div class="panel">
+          <strong id="currentSavings">$0.00</strong>
+          <div class="label">Current Savings</div>
+        </div>
+      </div>
+      <div id="categoryBreakdown" class="breakdown"></div>
+    </section>
+
+    <section id="entrySection" class="card">
+      <h2>Add Expenditure</h2>
+      <form id="entryForm">
+        <div class="row">
+          <input id="desc" placeholder="Description (e.g., Groceries)" required>
+          <input id="amount" type="number" step="0.01" placeholder="Amount" required>
+        </div>
+        <div class="row">
+          <input id="category" placeholder="Category (e.g., Food)" required>
+          <input id="priority" type="number" min="1" placeholder="Priority (1 = highest)" required>
+        </div>
+        <div class="row">
+          <input id="date" type="date" placeholder="Date" />
+          <button type="submit">Save</button>
+        </div>
+      </form>
+
+      <h3>Recent Items</h3>
+      <ul id="list" class="list"></ul>
+    </section>
+
+    <section id="planner" class="card">
+      <h2>Savings Planner</h2>
+      <div class="row">
+        <input id="goalAmount" type="number" step="0.01" placeholder="Savings goal amount" />
+        <input id="goalDate" type="date" />
+      </div>
+      <div class="row">
+        <label><input id="useAvgMonthlyExpenses" type="checkbox" checked> Use avg monthly expenses (recommended)</label>
+      </div>
+      <button id="calcGoalBtn">Calculate Plan</button>
+
+      <div id="planResult" class="planResult"></div>
+    </section>
+  </main>
+
+  <!-- Settings modal (simple) -->
+  <div id="settingsModal" class="modal" aria-hidden="true">
+    <div class="modal-content">
+      <h3>Settings</h3>
+      <label>Net monthly income:
+        <input id="settingNetIncome" type="number" step="0.01" placeholder="Net monthly income">
+      </label>
+      <label>Current savings:
+        <input id="settingCurrentSavings" type="number" step="0.01" placeholder="Current saved amount">
+      </label>
+      <div class="modal-actions">
+        <button id="saveSettingsBtn">Save</button>
+        <button id="closeSettingsBtn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/service-worker.js').catch(console.error);
+    }
+  </script>
+</body>
+</html>
