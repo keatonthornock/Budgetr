@@ -1,9 +1,8 @@
 // common.js — Supabase + Dexie sync for Budgetr
-// 1) Replace these with your project values:
+// REPLACE these two with your actual Supabase project values:
 const SUPABASE_URL = 'https://YOUR-PROJECT.supabase.co';   // <-- replace
 const SUPABASE_ANON_KEY = 'YOUR_ANON_KEY';                 // <-- replace
 
-// Supabase client (requires supabase-js script in the page)
 const supabase = supabaseJs.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // Local DB (Dexie) for offline/cache
@@ -13,26 +12,22 @@ db.version(1).stores({
   settings: 'key'
 });
 
-/* ----------------- AUTH (email + password) ----------------- */
-// sign in
+/* AUTH (email + password) */
 async function signIn(email, password){
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if(error) throw error;
   return data;
 }
-// sign out
 async function signOut(){
   const { error } = await supabase.auth.signOut();
   if(error) console.error('Sign out error', error);
 }
-// get current user
 async function getCurrentUser(){
   const { data } = await supabase.auth.getUser();
   return data.user || null;
 }
 
-/* ----------------- Server sync helpers ----------------- */
-// Fetch all rows from Supabase into local Dexie (replace local cache)
+/* Server sync helpers */
 async function syncFromSupabase(){
   const { data, error } = await supabase
     .from('expenditures')
@@ -57,9 +52,7 @@ async function syncFromSupabase(){
   window.dispatchEvent(new CustomEvent('expendituresUpdated'));
 }
 
-// Insert into Supabase (server). Realtime will push changes back to clients.
 async function addExpenditureToServer(payload){
-  // payload: { description, amount, category, priority, date }
   const { data, error } = await supabase.from('expenditures').insert([payload]).select();
   if(error) {
     console.error('Insert error', error);
@@ -67,8 +60,6 @@ async function addExpenditureToServer(payload){
   }
   return data && data[0];
 }
-
-// Delete on server
 async function deleteExpenditureFromServer(id){
   const { data, error } = await supabase.from('expenditures').delete().eq('id', id);
   if(error) {
@@ -78,13 +69,13 @@ async function deleteExpenditureFromServer(id){
   return data;
 }
 
-/* ----------------- Realtime subscription ----------------- */
+/* Realtime */
 let _realtimeSub = null;
 function subscribeRealtime(){
   if(_realtimeSub) return;
   _realtimeSub = supabase.channel('public:expenditures')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'expenditures' }, payload => {
-      const ev = payload.eventType; // INSERT, UPDATE, DELETE
+      const ev = payload.eventType;
       if(ev === 'INSERT' || ev === 'UPDATE'){
         const r = payload.new;
         db.expenditures.put({
@@ -105,27 +96,22 @@ function subscribeRealtime(){
     .subscribe();
 }
 
-/* ----------------- Init sync after login ----------------- */
+/* Init sync after login */
 async function initSupabaseSync(){
   const user = (await supabase.auth.getUser()).data.user;
   if(!user){
-    // not signed in; UI should redirect to login page
     return;
   }
-  // initial fetch -> local
   await syncFromSupabase();
-  // subscribe to realtime updates
   subscribeRealtime();
 }
 
-/* ----------------- wrappers for page code ----------------- */
+/* wrappers for page code */
 async function addExpenditure(payload){
-  // try server first; realtime will update local cache
   try {
     await addExpenditureToServer(payload);
   } catch(err){
     console.error('Server add failed, saving local fallback', err);
-    // fallback to local-only so user isn't blocked
     await db.expenditures.add({ ...payload, created_at: new Date().toISOString() });
     window.dispatchEvent(new CustomEvent('expendituresUpdated'));
   }
@@ -140,18 +126,17 @@ async function deleteExpenditure(id){
   }
 }
 
-/* ----------------- auth state change handling ----------------- */
+/* auth state change */
 supabase.auth.onAuthStateChange((event, session) => {
   if(event === 'SIGNED_IN') {
     initSupabaseSync().catch(console.error);
   }
   if(event === 'SIGNED_OUT') {
-    // optionally clear local DB or keep it
     console.log('Signed out');
   }
 });
 
-/* ----------------- small helpers exported globally ----------------- */
+/* exports */
 window.supabase = supabase;
 window.db = db;
 window.signIn = signIn;
