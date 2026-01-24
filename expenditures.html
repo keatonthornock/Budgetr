@@ -11,25 +11,37 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
   <link rel="stylesheet" href="styles.css">
-  <script src="https://unpkg.com/dexie@3.2.2/dist/dexie.min.js"></script>
-  <script src="common.js" defer></script>
-  <script src="expenditures.js" defer></script>
 
+  <!-- libs (must load before common.js) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script src="common.js" defer></script>
+  <script src="https://unpkg.com/dexie@3.2.2/dist/dexie.min.js"></script>
+
+  <!-- common (init supabase client + Dexie + helpers) - load synchronously so auth-check can run immediately -->
+  <script src="common.js"></script>
+
+  <!-- AUTH CHECK: redirect to login if not signed in, otherwise init sync -->
   <script>
-  // after common.js loaded (defer), run:
-  (async ()=>{
-    const user = await getCurrentUser();
-    if(!user) {
-      // not signed in: go to login page
-      location.href = 'login.html';
-      return;
-    }
-    // init sync if signed in
-    await initSupabaseSync();
-  })();
-</script>
+    (async function(){
+      try {
+        // getCurrentUser and initSupabaseSync are defined in common.js
+        const user = await getCurrentUser();
+        if(!user) {
+          // not signed in: go to login page
+          location.href = 'login.html';
+          return;
+        }
+        // initialize sync (fetch server rows and subscribe realtime)
+        await initSupabaseSync();
+      } catch (err) {
+        console.error('Auth/init check failed', err);
+        // Redirect to login to allow re-auth
+        location.href = 'login.html';
+      }
+    })();
+  </script>
+
+  <!-- page-specific code (deferred) -->
+  <script src="expenditures.js" defer></script>
 </head>
 
 <body>
