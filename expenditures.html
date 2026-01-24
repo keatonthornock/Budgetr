@@ -18,6 +18,21 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script src="common.js" defer></script>
 </head>
+  
+  <script>
+  // after common.js loaded (defer), run:
+  (async ()=>{
+    const user = await getCurrentUser();
+    if(!user) {
+      // not signed in: go to login page
+      location.href = 'login.html';
+      return;
+    }
+    // init sync if signed in
+    await initSupabaseSync();
+  })();
+</script>
+
 <body>
   <div class="app">
     <main class="main">
