@@ -26,54 +26,33 @@
   </div>
 
   <script>
+    // be defensive: wait until DOM is ready
     document.addEventListener('DOMContentLoaded', () => {
-    
-      const loginBtn = document.getElementById('loginBtn');
-      const emailInput = document.getElementById('loginEmail');
-      const passInput = document.getElementById('loginPass');
-    
-      // Helper: redirect to dashboard safely
-      const redirectToDashboard = () => {
-        window.location.href = 'index.html';
-      };
-    
-      // Check if user is already signed in (session persisted)
-      (async () => {
+      document.getElementById('loginBtn').addEventListener('click', async () => {
+        const email = document.getElementById('loginEmail').value.trim();
+        const password = document.getElementById('loginPass').value;
+        if(!email || !password) return alert('Enter email and password');
+
         try {
-          const user = await getCurrentUser();
-          if (user) {
-            console.log('User already signed in, redirecting...');
-            redirectToDashboard();
-          }
-        } catch (err) {
-          console.warn('Error checking current user:', err);
-        }
-      })();
-    
-      loginBtn.addEventListener('click', async () => {
-        const email = emailInput.value.trim();
-        const password = passInput.value;
-        if (!email || !password) return alert('Enter email and password');
-    
-        try {
-          const { data, error } = await signIn(email, password);
-          if (error) throw error;
-    
-          // Ensure session exists before continuing
-          if (!data.session) throw new Error('Login session not available yet');
-    
-          // Initialize sync (offline DB, realtime, etc.)
+          // call the wrapper from common.js (must be defined there as window.signIn)
+          await signIn(email, password);
+          // initialize sync now that session is set
           await initSupabaseSync();
-    
-          // Redirect after successful login
-          redirectToDashboard();
-    
+          // go to dashboard
+          window.location.href = 'index.html';
         } catch (err) {
-          console.error('Sign-in error:', err);
+          console.error('Sign-in error', err);
           alert('Sign-in failed: ' + (err.message || err));
         }
       });
-    
+
+      // if already signed in, skip login page
+      (async ()=>{
+        try {
+          const user = await getCurrentUser();
+          if(user) location.href = 'index.html';
+        } catch(e){ /* ignore */ }
+      })();
     });
   </script>
 </body>
