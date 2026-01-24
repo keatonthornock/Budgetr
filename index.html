@@ -1,13 +1,46 @@
 <!doctype html>
 <html lang="en">
 <head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Budgetr — Dashboard</title>
+
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#0b0f16" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
   <link rel="stylesheet" href="styles.css">
-  <!-- lib scripts -->
+
+  <!-- libs (must load before common.js) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script src="https://unpkg.com/dexie@3.2.2/dist/dexie.min.js"></script>
 
-  <!-- app scripts (single common.js) -->
-  <script src="common.js" defer></script>
+  <!-- common (init supabase client + Dexie + helpers) - load synchronously so auth-check can run immediately -->
+  <script src="common.js"></script>
+
+  <!-- AUTH CHECK: redirect to login if not signed in, otherwise init sync -->
+  <script>
+    (async function(){
+      try {
+        // getCurrentUser and initSupabaseSync are defined in common.js
+        const user = await getCurrentUser();
+        if(!user) {
+          // not signed in: go to login page
+          location.href = 'login.html';
+          return;
+        }
+        // initialize sync (fetch server rows and subscribe realtime)
+        await initSupabaseSync();
+      } catch (err) {
+        console.error('Auth/init check failed', err);
+        // redirect to login to allow re-auth
+        location.href = 'login.html';
+      }
+    })();
+  </script>
+
+  <!-- page-specific code (deferred) -->
   <script src="dashboard.js" defer></script>
 </head>
 
@@ -57,31 +90,10 @@
 
     <!-- bottom nav -->
     <nav class="bottom-nav">
-      <a class="nav-btn" href="index.html" id="navDashboard"><span class="nav-icon">🏠</span><span>Dashboard</span></a>
+      <a class="nav-btn active" href="index.html" id="navDashboard"><span class="nav-icon">🏠</span><span>Dashboard</span></a>
       <a class="nav-btn" href="expenditures.html" id="navExpend"><span class="nav-icon">📋</span><span>Expenditures</span></a>
       <a class="nav-btn" href="goals.html" id="navGoals"><span class="nav-icon">🎯</span><span>Goals</span></a>
     </nav>
   </div>
-
-  <script>
-  document.addEventListener('DOMContentLoaded', async () => {
-    try {
-      const user = await getCurrentUser();
-      if(!user) {
-        location.href = 'login.html';
-        return;
-      }
-      await initSupabaseSync();
-    } catch (err) {
-      console.error('Auth check failed', err);
-      location.href = 'login.html';
-    }
-  });
-  </script>
 </body>
 </html>
-
-
-
-
-
