@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Budgetr — Goals</title>
+
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#0b0f16" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://unpkg.com/dexie@3.2.2/dist/dexie.min.js"></script>
+  <script src="common.js" defer></script>
+  <script src="goals.js" defer></script>
+</head>
+<body>
+  <div class="app">
+    <main class="main">
+      <header class="topbar">
+        <div class="title">Goals</div>
+      </header>
+
+      <div class="content">
+        <div class="card">
+          <h3>Savings Planner</h3>
+          <div class="row">
+            <input id="goalAmount" type="number" placeholder="Goal amount" />
+            <input id="goalDate" type="date" />
+          </div>
+          <div class="row gap">
+            <label><input id="useAvg" type="checkbox" checked /> Use avg monthly expenses</label>
+          </div>
+          <button id="calcGoal" class="btn">Calculate</button>
+          <div id="goalResult" class="goal-result"></div>
+        </div>
+      </div>
+    </main>
+
+    <!-- bottom nav -->
+    <nav class="bottom-nav">
+      <a class="nav-btn" href="index.html" id="navDashboard"><span class="nav-icon">🏠</span><span>Dashboard</span></a>
+      <a class="nav-btn" href="expenditures.html" id="navExpend"><span class="nav-icon">📋</span><span>Expenditures</span></a>
+      <a class="nav-btn active" href="goals.html" id="navGoals"><span class="nav-icon">🎯</span><span>Goals</span></a>
+    </nav>
+  </div>
+</body>
+</html>
