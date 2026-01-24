@@ -5,42 +5,58 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Budgetr — Login</title>
   <link rel="stylesheet" href="styles.css">
+
+  <!-- Supabase lib first -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script src="common.js" defer></script>
+
+  <!-- common.js must load before any code that calls signIn/getCurrentUser -->
+  <script src="common.js"></script>
 </head>
 <body>
   <div class="center-card" style="padding:20px;">
     <h2>Budgetr Sign In</h2>
+
     <input id="loginEmail" type="email" placeholder="Email" style="width:100%;padding:10px;margin:6px 0" />
     <input id="loginPass" type="password" placeholder="Password" style="width:100%;padding:10px;margin:6px 0" />
+
     <div style="display:flex;gap:8px;margin-top:8px">
       <button id="loginBtn" class="btn primary" style="flex:1">Sign In</button>
     </div>
+
     <div style="margin-top:10px;color:var(--muted);font-size:13px">
       Use the shared account credentials you created in Supabase.
     </div>
   </div>
 
   <script>
-    document.getElementById('loginBtn').addEventListener('click', async () => {
-      const email = document.getElementById('loginEmail').value.trim();
-      const password = document.getElementById('loginPass').value;
-      if(!email || !password) return alert('Enter email and password');
-      try {
-        await signIn(email, password);
-        // after sign-in, init sync and redirect to dashboard
-        await initSupabaseSync();
-        window.location.href = 'index.html';
-      } catch(err){
-        alert('Sign-in failed: ' + (err.message || err));
-      }
-    });
+    // be defensive: wait until DOM is ready
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('loginBtn').addEventListener('click', async () => {
+        const email = document.getElementById('loginEmail').value.trim();
+        const password = document.getElementById('loginPass').value;
+        if(!email || !password) return alert('Enter email and password');
 
-    // if already signed in, go to dashboard
-    (async ()=>{
-      const user = await getCurrentUser();
-      if(user) location.href = 'index.html';
-    })();
+        try {
+          // call the wrapper from common.js (must be defined there as window.signIn)
+          await signIn(email, password);
+          // initialize sync now that session is set
+          await initSupabaseSync();
+          // go to dashboard
+          window.location.href = 'index.html';
+        } catch (err) {
+          console.error('Sign-in error', err);
+          alert('Sign-in failed: ' + (err.message || err));
+        }
+      });
+
+      // if already signed in, skip login page
+      (async ()=>{
+        try {
+          const user = await getCurrentUser();
+          if(user) location.href = 'index.html';
+        } catch(e){ /* ignore */ }
+      })();
+    });
   </script>
 </body>
 </html>
