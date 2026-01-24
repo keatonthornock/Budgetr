@@ -1,64 +1,163 @@
-// common.js — shared DB, settings, multi-page helpers
+// common.js — Supabase + Dexie sync for Budgetr
+// 1) Replace these with your project values:
+const SUPABASE_URL = 'https://YOUR-PROJECT.supabase.co';   // <-- replace
+const SUPABASE_ANON_KEY = 'YOUR_ANON_KEY';                 // <-- replace
 
+// Supabase client (requires supabase-js script in the page)
+const supabase = supabaseJs.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Local DB (Dexie) for offline/cache
 const db = new Dexie('budgetr_db');
 db.version(1).stores({
   expenditures: '++id, description, amount, category, priority, date, created_at',
   settings: 'key'
 });
 
-// settings helpers
-async function getSetting(key, fallback = null){
-  const row = await db.settings.get(key);
-  return row ? row.value : fallback;
+/* ----------------- AUTH (email + password) ----------------- */
+// sign in
+async function signIn(email, password){
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if(error) throw error;
+  return data;
 }
-async function setSetting(key, value){
-  await db.settings.put({key, value});
-  return value;
+// sign out
+async function signOut(){
+  const { error } = await supabase.auth.signOut();
+  if(error) console.error('Sign out error', error);
+}
+// get current user
+async function getCurrentUser(){
+  const { data } = await supabase.auth.getUser();
+  return data.user || null;
 }
 
-// frequency multipliers (base stored amounts are monthly)
-function multiplierFor(freq){
-  switch(freq){
-    case 'month': return 1;
-    case 'year': return 12;
-    case 'biweekly': return 12/26;
-    case 'weekly': return 12/52;
-    default: return 1;
+/* ----------------- Server sync helpers ----------------- */
+// Fetch all rows from Supabase into local Dexie (replace local cache)
+async function syncFromSupabase(){
+  const { data, error } = await supabase
+    .from('expenditures')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if(error) {
+    console.error('Supabase fetch error', error);
+    return;
+  }
+  await db.expenditures.clear();
+  if(data && data.length) {
+    await db.expenditures.bulkAdd(data.map(r => ({
+      id: r.id,
+      description: r.description,
+      amount: Number(r.amount),
+      category: r.category,
+      priority: r.priority,
+      date: r.date,
+      created_at: r.created_at
+    })));
+  }
+  window.dispatchEvent(new CustomEvent('expendituresUpdated'));
+}
+
+// Insert into Supabase (server). Realtime will push changes back to clients.
+async function addExpenditureToServer(payload){
+  // payload: { description, amount, category, priority, date }
+  const { data, error } = await supabase.from('expenditures').insert([payload]).select();
+  if(error) {
+    console.error('Insert error', error);
+    throw error;
+  }
+  return data && data[0];
+}
+
+// Delete on server
+async function deleteExpenditureFromServer(id){
+  const { data, error } = await supabase.from('expenditures').delete().eq('id', id);
+  if(error) {
+    console.error('Delete error', error);
+    throw error;
+  }
+  return data;
+}
+
+/* ----------------- Realtime subscription ----------------- */
+let _realtimeSub = null;
+function subscribeRealtime(){
+  if(_realtimeSub) return;
+  _realtimeSub = supabase.channel('public:expenditures')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'expenditures' }, payload => {
+      const ev = payload.eventType; // INSERT, UPDATE, DELETE
+      if(ev === 'INSERT' || ev === 'UPDATE'){
+        const r = payload.new;
+        db.expenditures.put({
+          id: r.id,
+          description: r.description,
+          amount: Number(r.amount),
+          category: r.category,
+          priority: r.priority,
+          date: r.date,
+          created_at: r.created_at
+        }).catch(console.error);
+      } else if(ev === 'DELETE'){
+        const o = payload.old;
+        db.expenditures.delete(o.id).catch(console.error);
+      }
+      window.dispatchEvent(new CustomEvent('expendituresUpdated'));
+    })
+    .subscribe();
+}
+
+/* ----------------- Init sync after login ----------------- */
+async function initSupabaseSync(){
+  const user = (await supabase.auth.getUser()).data.user;
+  if(!user){
+    // not signed in; UI should redirect to login page
+    return;
+  }
+  // initial fetch -> local
+  await syncFromSupabase();
+  // subscribe to realtime updates
+  subscribeRealtime();
+}
+
+/* ----------------- wrappers for page code ----------------- */
+async function addExpenditure(payload){
+  // try server first; realtime will update local cache
+  try {
+    await addExpenditureToServer(payload);
+  } catch(err){
+    console.error('Server add failed, saving local fallback', err);
+    // fallback to local-only so user isn't blocked
+    await db.expenditures.add({ ...payload, created_at: new Date().toISOString() });
+    window.dispatchEvent(new CustomEvent('expendituresUpdated'));
+  }
+}
+async function deleteExpenditure(id){
+  try {
+    await deleteExpenditureFromServer(id);
+  } catch(err){
+    console.error('Server delete failed, deleting locally', err);
+    await db.expenditures.delete(id);
+    window.dispatchEvent(new CustomEvent('expendituresUpdated'));
   }
 }
 
-// set frequency and notify other pages (CustomEvent)
-async function setFrequencyAndNotify(freq){
-  await setSetting('frequency', freq);
-  // dispatch event so script on the same page can react
-  window.dispatchEvent(new CustomEvent('frequencyChange', {detail:{frequency:freq}}));
-  // also try to use storage event (useful if multiple tabs open)
-  try { localStorage.setItem('budgetr-frequency', freq); } catch(e){}
-}
-
-// When other tab/page updates localStorage, forward event
-window.addEventListener('storage', (ev) => {
-  if(ev.key === 'budgetr-frequency'){
-    const f = ev.newValue;
-    window.dispatchEvent(new CustomEvent('frequencyChange', {detail:{frequency:f}}));
+/* ----------------- auth state change handling ----------------- */
+supabase.auth.onAuthStateChange((event, session) => {
+  if(event === 'SIGNED_IN') {
+    initSupabaseSync().catch(console.error);
+  }
+  if(event === 'SIGNED_OUT') {
+    // optionally clear local DB or keep it
+    console.log('Signed out');
   }
 });
 
-// formatting and escaping
-function formatMoney(n){
-  return `$${Number(n||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`;
-}
-function escapeHtml(s){ return (s+'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-
-// helper to set active bottom nav (call on page load)
-function setActiveNav(id){
-  document.querySelectorAll('.nav-btn').forEach(el=>{
-    el.classList.toggle('active', el.id === id);
-  });
-}
-
-// helper: ensure a sane default frequency exists
-(async function ensureDefaultFrequency(){
-  const f = await getSetting('frequency');
-  if(!f) await setSetting('frequency','month');
-})();
+/* ----------------- small helpers exported globally ----------------- */
+window.supabase = supabase;
+window.db = db;
+window.signIn = signIn;
+window.signOut = signOut;
+window.getCurrentUser = getCurrentUser;
+window.initSupabaseSync = initSupabaseSync;
+window.addExpenditure = addExpenditure;
+window.deleteExpenditure = deleteExpenditure;
+window.syncFromSupabase = syncFromSupabase;
