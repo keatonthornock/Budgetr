@@ -6,6 +6,22 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   const f = await getSetting('frequency') || 'month';
   freqSelect.value = f;
 
+  // sent to server to realtime sync added data in the table
+  try {
+    await addExpenditure({ description: desc, amount, category, priority, date });
+  } catch(err){
+    console.error('Add failed, storing locally', err);
+    await db.expenditures.add({ description: desc, amount, category, priority, date, created_at: new Date().toISOString() });
+  }
+
+  // sent to server to realtime sync deletion data in the table
+  try {
+    await deleteExpenditure(id);
+  } catch(err){
+    console.error('Delete failed', err);
+    await db.expenditures.delete(id);
+  }
+  
   // change frequency
   freqSelect.addEventListener('change', async (e)=>{
     await setFrequencyAndNotify(e.target.value);
