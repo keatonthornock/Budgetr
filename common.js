@@ -111,10 +111,11 @@ function subscribeRealtime(){
 
 /* Init sync after login */
 async function initSupabaseSync(){
+  if (!window.db) return; // ⛑ safety net
+
   const user = (await supabaseClient.auth.getUser()).data.user;
-  if(!user){
-    return;
-  }
+  if(!user) return;
+  
   await syncFromSupabase();
   subscribeRealtime();
 }
