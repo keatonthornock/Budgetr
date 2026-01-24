@@ -118,4 +118,37 @@
         </div>
       </section>
 
-      <!-- Goals
+      <!-- Goals View -->
+      <section id="view-goals" class="view">
+        <header class="topbar">
+          <div class="title">Goals</div>
+        </header>
+
+        <div class="content">
+          <div class="card">
+            <h3>Savings Planner</h3>
+            <div class="row">
+              <input id="goalAmount" type="number" placeholder="Goal amount" />
+              <input id="goalDate" type="date" />
+            </div>
+            <div class="row gap">
+              <label><input id="useAvg" type="checkbox" checked /> Use avg monthly expenses</label>
+            </div>
+            <button id="calcGoal" class="btn">Calculate</button>
+            <div id="goalResult" class="goal-result"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Bottom nav (keeps safe-area) -->
+    <nav class="bottom-nav">
+      <button class="nav-btn active" data-view="dashboard" id="navDashboard">Dashboard</button>
+      <button class="nav-btn" data-view="expenditures" id="navExpend">Expenditures</button>
+      <button class="nav-btn" data-view="goals" id="navGoals">Goals</button>
+    </nav>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
