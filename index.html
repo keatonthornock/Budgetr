@@ -2,114 +2,147 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>HouseSave</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Budgetr</title>
 
-  <!-- PWA manifest -->
   <link rel="manifest" href="/manifest.webmanifest">
-  <meta name="theme-color" content="#2E8B57" />
-  <!-- Apple meta (improves look when saved to Home Screen) -->
+  <meta name="theme-color" content="#0F1724" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
   <link rel="stylesheet" href="/styles.css">
-
-  <!-- Dexie (IndexedDB wrapper) -->
+  <!-- Dexie for IndexedDB -->
   <script src="https://unpkg.com/dexie@3.2.2/dist/dexie.min.js"></script>
 </head>
 <body>
-  <header>
-    <h1>HouseSave</h1>
-    <div class="header-actions">
-      <button id="openSettingsBtn">Settings</button>
-      <button id="exportBtn">Export</button>
-      <input id="importFile" type="file" accept="application/json" style="display:none">
-      <button id="importBtn">Import</button>
+  <div id="app" class="app">
+    <!-- Main content -->
+    <main id="mainView" class="main">
+      <!-- Dashboard view -->
+      <section id="view-dashboard" class="view active">
+        <header class="topbar">
+          <div class="title">Dashboard</div>
+          <button id="openSettings" class="icon-btn" title="Settings">⚙️</button>
+        </header>
+
+        <div class="content">
+          <div class="card total-card">
+            <div class="card-label">Total Spent</div>
+            <div class="total-amount" id="totalSpent">$0.00</div>
+            <div class="trend">↘︎</div>
+          </div>
+
+          <div class="mini-cards">
+            <div class="mini card">
+              <div class="mini-label">Monthly Income</div>
+              <div class="mini-amount green" id="netIncome">$0.00</div>
+            </div>
+            <div class="mini card">
+              <div class="mini-label">Remaining</div>
+              <div class="mini-amount green" id="remaining">$0.00</div>
+            </div>
+          </div>
+
+          <div class="card breakdown-card">
+            <div class="card-header">
+              <div class="h">Spending by Category</div>
+            </div>
+            <div id="categoryList" class="category-list"></div>
+          </div>
+
+          <div class="card recent-card">
+            <div class="card-header">
+              <div class="h">Recent Expenses</div>
+            </div>
+            <ul id="recentList" class="recent-list"></ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- Expenditures view -->
+      <section id="view-expenditures" class="view">
+        <header class="topbar">
+          <div class="title">Expenditures</div>
+          <input id="searchInput" class="search" placeholder="Search description or category…" />
+        </header>
+
+        <div class="content">
+          <div class="card list-card">
+            <ul id="expList" class="exp-list"></ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- Goals view -->
+      <section id="view-goals" class="view">
+        <header class="topbar">
+          <div class="title">Goals</div>
+        </header>
+
+        <div class="content">
+          <div class="card">
+            <h3>Savings Planner</h3>
+            <div class="row">
+              <input id="goalAmount" type="number" placeholder="Goal amount" />
+              <input id="goalDate" type="date" />
+            </div>
+            <div class="row gap">
+              <label><input id="useAvg" type="checkbox" checked /> Use avg monthly expenses</label>
+            </div>
+            <button id="calcGoal" class="btn">Calculate</button>
+            <div id="goalResult" class="goal-result"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Floating Add button -->
+    <button id="addFab" class="fab">＋</button>
+
+    <!-- Bottom nav -->
+    <nav class="bottom-nav">
+      <button class="nav-btn active" data-view="dashboard" id="navDashboard">
+        <svg viewBox="0 0 24 24" class="icon"><path d="M3 13h8V3H3v10zM3 21h8v-6H3v6zM13 21h8V11h-8v10zM13 3v6h8V3h-8z" /></svg>
+        <span>Dashboard</span>
+      </button>
+
+      <button class="nav-btn" data-view="expenditures" id="navExpend">
+        <svg viewBox="0 0 24 24" class="icon"><path d="M3 6h18v2H3zM3 11h18v2H3zM3 16h18v2H3z"/></svg>
+        <span>Expenditures</span>
+      </button>
+
+      <div class="nav-gap"></div>
+
+      <button class="nav-btn" data-view="goals" id="navGoals">
+        <svg viewBox="0 0 24 24" class="icon"><path d="M12 2l3 7h7l-5.6 4 2 7L12 16l-6.4 4 2-7L2 9h7z"/></svg>
+        <span>Goals</span>
+      </button>
+    </nav>
+
+    <!-- Add overlay -->
+    <div id="addOverlay" class="overlay hidden" aria-hidden="true">
+      <div class="overlay-card">
+        <h3>Add Expense</h3>
+        <form id="addForm" class="form">
+          <input id="fDesc" placeholder="Description (e.g., Mortgage)" required />
+          <div class="row">
+            <input id="fAmount" type="number" step="0.01" placeholder="Amount" required />
+            <input id="fDate" type="date" />
+          </div>
+          <div class="row">
+            <input id="fCategory" placeholder="Category (e.g., Housing)" />
+            <input id="fPriority" type="number" min="1" placeholder="Priority (1 = highest)" />
+          </div>
+          <div class="actions">
+            <button type="button" id="cancelAdd" class="btn ghost">Cancel</button>
+            <button type="submit" class="btn primary">Save</button>
+          </div>
+        </form>
+      </div>
     </div>
-  </header>
 
-  <main>
-    <section id="dashboard" class="card">
-      <h2>Dashboard</h2>
-      <div class="dashboard-grid">
-        <div class="panel">
-          <strong id="monthlyExpenses">$0.00</strong>
-          <div class="label">Avg Monthly Expenses</div>
-        </div>
-        <div class="panel">
-          <strong id="netIncome">$0.00</strong>
-          <div class="label">Net Monthly Income</div>
-        </div>
-        <div class="panel">
-          <strong id="availableMonthly">$0.00</strong>
-          <div class="label">Available Monthly (income − expenses)</div>
-        </div>
-        <div class="panel">
-          <strong id="currentSavings">$0.00</strong>
-          <div class="label">Current Savings</div>
-        </div>
-      </div>
-      <div id="categoryBreakdown" class="breakdown"></div>
-    </section>
-
-    <section id="entrySection" class="card">
-      <h2>Add Expenditure</h2>
-      <form id="entryForm">
-        <div class="row">
-          <input id="desc" placeholder="Description (e.g., Groceries)" required>
-          <input id="amount" type="number" step="0.01" placeholder="Amount" required>
-        </div>
-        <div class="row">
-          <input id="category" placeholder="Category (e.g., Food)" required>
-          <input id="priority" type="number" min="1" placeholder="Priority (1 = highest)" required>
-        </div>
-        <div class="row">
-          <input id="date" type="date" placeholder="Date" />
-          <button type="submit">Save</button>
-        </div>
-      </form>
-
-      <h3>Recent Items</h3>
-      <ul id="list" class="list"></ul>
-    </section>
-
-    <section id="planner" class="card">
-      <h2>Savings Planner</h2>
-      <div class="row">
-        <input id="goalAmount" type="number" step="0.01" placeholder="Savings goal amount" />
-        <input id="goalDate" type="date" />
-      </div>
-      <div class="row">
-        <label><input id="useAvgMonthlyExpenses" type="checkbox" checked> Use avg monthly expenses (recommended)</label>
-      </div>
-      <button id="calcGoalBtn">Calculate Plan</button>
-
-      <div id="planResult" class="planResult"></div>
-    </section>
-  </main>
-
-  <!-- Settings modal (simple) -->
-  <div id="settingsModal" class="modal" aria-hidden="true">
-    <div class="modal-content">
-      <h3>Settings</h3>
-      <label>Net monthly income:
-        <input id="settingNetIncome" type="number" step="0.01" placeholder="Net monthly income">
-      </label>
-      <label>Current savings:
-        <input id="settingCurrentSavings" type="number" step="0.01" placeholder="Current saved amount">
-      </label>
-      <div class="modal-actions">
-        <button id="saveSettingsBtn">Save</button>
-        <button id="closeSettingsBtn">Close</button>
-      </div>
-    </div>
   </div>
 
   <script src="/app.js"></script>
-  <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/service-worker.js').catch(console.error);
-    }
-  </script>
 </body>
 </html>
