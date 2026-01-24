@@ -82,19 +82,6 @@ html,body{
 .exp-category{font-size:13px;color:var(--muted)}
 .priority{font-size:13px;color:var(--muted);text-align:center}
 
-.add-screen {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 9999;
-  background: var(--card);
-  padding: 20px;
-  border-radius: var(--radius);
-  box-shadow: 0 8px 20px rgba(0,0,0,0.6);
-  width: 90%;
-  max-width: 400px;
-}
 .add-screen.hidden { display: none; }
 
 /* Buttons */
@@ -130,4 +117,5 @@ html,body{
   .main{padding-left:20px;padding-right:20px}
   .content{max-width:700px;margin:0 auto}
 }
+
 
