@@ -2,20 +2,6 @@
 document.addEventListener('DOMContentLoaded', async ()=>{
   setActiveNav('navExpend');
 
-  const freqSelect = document.getElementById('freqExpend');
-  const f = await getSetting('frequency') || 'month';
-  freqSelect.value = f;
-
-  // change frequency
-  freqSelect.addEventListener('change', async (e)=>{
-    await setFrequencyAndNotify(e.target.value);
-    renderExpenditures();
-  });
-  // listen to changes
-  window.addEventListener('frequencyChange', ()=> {
-    getSetting('frequency').then(val => { freqSelect.value = val; renderExpenditures(); });
-  });
-
   const showAddBtn = document.getElementById('showAddBtn');
   const addScreen = document.getElementById('addScreen');
   const addForm = document.getElementById('addForm');
@@ -28,6 +14,20 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   cancelAdd.addEventListener('click', ()=> {
     addForm.reset();
     addScreen.classList.add('hidden');
+  });
+
+  const freqSelect = document.getElementById('freqExpend');
+  const f = await getSetting('frequency') || 'month';
+  freqSelect.value = f;
+
+  // change frequency
+  freqSelect.addEventListener('change', async (e)=>{
+    await setFrequencyAndNotify(e.target.value);
+    renderExpenditures();
+  });
+  // listen to changes
+  window.addEventListener('frequencyChange', ()=> {
+    getSetting('frequency').then(val => { freqSelect.value = val; renderExpenditures(); });
   });
 
   addForm.addEventListener('submit', async (e)=>{
