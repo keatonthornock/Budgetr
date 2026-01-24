@@ -19,6 +19,9 @@
   <!-- common (init supabase client + Dexie + helpers) - load synchronously so auth-check can run immediately -->
   <script src="common.js"></script>
 
+  <!-- page-specific code (deferred) -->
+  <script src="dashboard.js" defer></script>
+
   <!-- AUTH CHECK: redirect to login if not signed in, otherwise init sync -->
   <script>
     (async function(){
@@ -40,8 +43,6 @@
     })();
   </script>
 
-  <!-- page-specific code (deferred) -->
-  <script src="dashboard.js" defer></script>
 </head>
 
 <body>
@@ -97,3 +98,4 @@
   </div>
 </body>
 </html>
+
