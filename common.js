@@ -140,7 +140,7 @@ supabaseClient.auth.onAuthStateChange((event, session) => {
 });
 
 /* exports */
-window.supabase = supabaseClient;
+window.supabaseClient = supabaseClient;
 window.db = db;
 window.signIn = signIn;
 window.signOut = signOut;
