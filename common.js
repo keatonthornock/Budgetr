@@ -140,6 +140,17 @@ async function deleteExpenditure(id){
   }
 }
 
+/* helper to set active bottom nav button */
+function setActiveNav(id) {
+  document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+  const el = document.getElementById(id);
+  if(el) el.classList.add('active');
+}
+
+// expose globally
+window.setActiveNav = setActiveNav;
+
+
 /* exports */
 window.supabaseClient = supabaseClient;
 window.db = db;
