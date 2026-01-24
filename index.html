@@ -1,35 +1,14 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Budgetr — Dashboard</title>
-
-  <link rel="manifest" href="manifest.webmanifest">
-  <meta name="theme-color" content="#0b0f16" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-
   <link rel="stylesheet" href="styles.css">
+  <!-- lib scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script src="https://unpkg.com/dexie@3.2.2/dist/dexie.min.js"></script>
+
+  <!-- app scripts (single common.js) -->
   <script src="common.js" defer></script>
   <script src="dashboard.js" defer></script>
-
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script src="common.js" defer></script>
-  <script>
-  // after common.js loaded (defer), run:
-  (async ()=>{
-    const user = await getCurrentUser();
-    if(!user) {
-      // not signed in: go to login page
-      location.href = 'login.html';
-      return;
-    }
-    // init sync if signed in
-    await initSupabaseSync();
-  })();
-  </script>
 </head>
 
 <body>
@@ -83,8 +62,25 @@
       <a class="nav-btn" href="goals.html" id="navGoals"><span class="nav-icon">🎯</span><span>Goals</span></a>
     </nav>
   </div>
+
+  <script>
+  document.addEventListener('DOMContentLoaded', async () => {
+    try {
+      const user = await getCurrentUser();
+      if(!user) {
+        location.href = 'login.html';
+        return;
+      }
+      await initSupabaseSync();
+    } catch (err) {
+      console.error('Auth check failed', err);
+      location.href = 'login.html';
+    }
+  });
+  </script>
 </body>
 </html>
+
 
 
 
