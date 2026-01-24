@@ -15,6 +15,16 @@ db.version(1).stores({
   settings: 'key'
 });
 
+/* auth state change */
+supabaseClient.auth.onAuthStateChange((event, session) => {
+  if(event === 'SIGNED_IN') {
+    initSupabaseSync().catch(console.error);
+  }
+  if(event === 'SIGNED_OUT') {
+    console.log('Signed out');
+  }
+});
+
 /* AUTH (email + password) */
 async function signIn(email, password){
   const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
@@ -128,16 +138,6 @@ async function deleteExpenditure(id){
     window.dispatchEvent(new CustomEvent('expendituresUpdated'));
   }
 }
-
-/* auth state change */
-supabaseClient.auth.onAuthStateChange((event, session) => {
-  if(event === 'SIGNED_IN') {
-    initSupabaseSync().catch(console.error);
-  }
-  if(event === 'SIGNED_OUT') {
-    console.log('Signed out');
-  }
-});
 
 /* exports */
 window.supabaseClient = supabaseClient;
