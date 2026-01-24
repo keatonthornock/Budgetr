@@ -12,6 +12,13 @@
 
   <link rel="stylesheet" href="styles.css">
 
+  <!-- libs -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="https://unpkg.com/dexie@3.2.2/dist/dexie.min.js"></script>
+
+  <!-- common helpers -->
+  <script src="common.js"></script>
+  
   <!-- auth check and init -->
   <script>
     (async function(){
@@ -61,13 +68,6 @@
       <a class="nav-btn active" href="goals.html" id="navGoals"><span class="nav-icon">🎯</span><span>Goals</span></a>
     </nav>
   </div>
-  
-  <!-- libs -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script src="https://unpkg.com/dexie@3.2.2/dist/dexie.min.js"></script>
-
-  <!-- common helpers -->
-  <script src="common.js"></script>
 
   <!-- page script -->
   <script src="goals.js" defer></script>
