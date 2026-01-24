@@ -6,22 +6,6 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   const f = await getSetting('frequency') || 'month';
   freqSelect.value = f;
 
-  // sent to server to realtime sync added data in the table
-  try {
-    await addExpenditure({ description: desc, amount, category, priority, date });
-  } catch(err){
-    console.error('Add failed, storing locally', err);
-    await db.expenditures.add({ description: desc, amount, category, priority, date, created_at: new Date().toISOString() });
-  }
-
-  // sent to server to realtime sync deletion data in the table
-  try {
-    await deleteExpenditure(id);
-  } catch(err){
-    console.error('Delete failed', err);
-    await db.expenditures.delete(id);
-  }
-  
   // change frequency
   freqSelect.addEventListener('change', async (e)=>{
     await setFrequencyAndNotify(e.target.value);
@@ -54,8 +38,17 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     const category = document.getElementById('fCategory').value.trim() || 'Uncategorized';
     const priority = parseInt(document.getElementById('fPriority').value || 99);
     if(!desc || !amount) return alert('Please add description and amount');
-    await db.expenditures.add({ description: desc, amount, category, priority, date, created_at: new Date().toISOString() });
-    addForm.reset(); addScreen.classList.add('hidden');
+
+    // Use the Supabase wrapper; it will fallback to local if server fails
+    try {
+      await addExpenditure({ description: desc, amount, category, priority, date });
+    } catch(err) {
+      console.error('Add failed, saved locally', err);
+    }
+
+    addForm.reset();
+    addScreen.classList.add('hidden');
+    // local UI update will occur via 'expendituresUpdated' event or you can force a render
     renderExpenditures();
   });
 
@@ -88,7 +81,12 @@ document.addEventListener('DOMContentLoaded', async ()=>{
       btn.addEventListener('click', async (e)=>{
         const id = Number(e.currentTarget.dataset.id);
         if(confirm('Delete this entry?')) {
-          await db.expenditures.delete(id);
+          try {
+            await deleteExpenditure(id);
+          } catch(err){
+            console.error('Delete failed, deleting locally', err);
+            await db.expenditures.delete(id);
+          }
           renderExpenditures();
         }
       });
@@ -96,6 +94,9 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   }
 
   // update UI when DB changes
+  window.addEventListener('expendituresUpdated', ()=> {
+    renderExpenditures();
+  });
   db.expenditures.hook('creating', ()=> setTimeout(renderExpenditures, 80));
   db.expenditures.hook('deleting', ()=> setTimeout(renderExpenditures, 80));
 
