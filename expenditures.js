@@ -7,6 +7,11 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   const addForm = document.getElementById('addForm');
   const cancelAdd = document.getElementById('cancelAdd');
 
+  if (!showAddBtn) {
+    console.error('Cannot find Add (+) button!');
+    return;
+  }
+
   showAddBtn.addEventListener('click', ()=> {
     addScreen.classList.remove('hidden');
     addScreen.scrollIntoView({behavior:'smooth', block:'center'});
