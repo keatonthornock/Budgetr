@@ -1,4 +1,4 @@
-# HouseSave — simple PWA for family finances
+# Budgetr — simple PWA for family finances
 
 ## Install locally
 - Clone this repo, run a static server (or deploy to GitHub Pages).
@@ -15,3 +15,4 @@
 ## Data & sharing notes
 - All data is stored on-device (IndexedDB). To share between phones: use Export → send the JSON file via AirDrop / iCloud / Dropbox → Import on the other device.
 - If you want automatic sync, I can add optional integrations (Firebase / Supabase / GitHub-backed encrypted sync), but that requires a hosted service.
+
