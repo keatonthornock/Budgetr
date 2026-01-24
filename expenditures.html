@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Budgetr — Expenditures</title>
+
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#0b0f16" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://unpkg.com/dexie@3.2.2/dist/dexie.min.js"></script>
+  <script src="common.js" defer></script>
+  <script src="expenditures.js" defer></script>
+</head>
+<body>
+  <div class="app">
+    <main class="main">
+      <header class="topbar">
+        <div class="title">Expenditures</div>
+        <div class="right">
+          <select id="freqExpend" class="freq-select" aria-label="Frequency">
+            <option value="month">Month</option>
+            <option value="year">Year</option>
+            <option value="biweekly">Every Other Week</option>
+            <option value="weekly">Weekly</option>
+          </select>
+          <button id="showAddBtn" class="btn small">Add</button>
+        </div>
+      </header>
+
+      <div class="content">
+        <div class="card list-card">
+          <div class="table-header">
+            <div class="th">Expenditure</div>
+            <div class="th">Cost</div>
+            <div class="th">Priority</div>
+            <div class="th">Category</div>
+          </div>
+          <div id="expList" class="exp-list"></div>
+        </div>
+
+        <div id="addScreen" class="card add-screen hidden">
+          <h3>Add Expense</h3>
+          <form id="addForm" class="form">
+            <input id="fDesc" placeholder="Description (e.g., Mortgage)" required />
+            <div class="row">
+              <input id="fAmount" type="number" step="0.01" placeholder="Amount (monthly base)" required />
+              <input id="fDate" type="date" />
+            </div>
+            <div class="row">
+              <input id="fCategory" placeholder="Category (e.g., Housing)" />
+              <input id="fPriority" type="number" min="1" placeholder="Priority (1 = highest)" />
+            </div>
+            <div class="actions">
+              <button type="button" id="cancelAdd" class="btn ghost">Cancel</button>
+              <button type="submit" class="btn primary">Save</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </main>
+
+    <!-- bottom nav -->
+    <nav class="bottom-nav">
+      <a class="nav-btn" href="index.html" id="navDashboard"><span class="nav-icon">🏠</span><span>Dashboard</span></a>
+      <a class="nav-btn active" href="expenditures.html" id="navExpend"><span class="nav-icon">📋</span><span>Expenditures</span></a>
+      <a class="nav-btn" href="goals.html" id="navGoals"><span class="nav-icon">🎯</span><span>Goals</span></a>
+    </nav>
+  </div>
+</body>
+</html>
