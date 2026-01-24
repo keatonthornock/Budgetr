@@ -11,25 +11,33 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
   <link rel="stylesheet" href="styles.css">
-  <script src="https://unpkg.com/dexie@3.2.2/dist/dexie.min.js"></script>
-  <script src="common.js" defer></script>
-  <script src="goals.js" defer></script>
 
+  <!-- libs -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script src="common.js" defer></script>
+  <script src="https://unpkg.com/dexie@3.2.2/dist/dexie.min.js"></script>
+
+  <!-- common helpers -->
+  <script src="common.js"></script>
+
+  <!-- auth check and init -->
   <script>
-  // after common.js loaded (defer), run:
-  (async ()=>{
-    const user = await getCurrentUser();
-    if(!user) {
-      // not signed in: go to login page
-      location.href = 'login.html';
-      return;
-    }
-    // init sync if signed in
-    await initSupabaseSync();
-  })();
+    (async function(){
+      try {
+        const user = await getCurrentUser();
+        if(!user) {
+          location.href = 'login.html';
+          return;
+        }
+        await initSupabaseSync();
+      } catch (err) {
+        console.error('Auth/init check failed', err);
+        location.href = 'login.html';
+      }
+    })();
   </script>
+
+  <!-- page script -->
+  <script src="goals.js" defer></script>
 </head>
 
 <body>
