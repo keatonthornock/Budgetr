@@ -1,7 +1,7 @@
 // common.js — Supabase + Dexie sync for Budgetr
 // REPLACE these two with your actual Supabase project values:
-const SUPABASE_URL = 'https://YOUR-PROJECT.supabase.co';   // <-- replace
-const SUPABASE_ANON_KEY = 'YOUR_ANON_KEY';                 // <-- replace
+const SUPABASE_URL = 'https://srhmhrllhavckopoteui.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_toK5FMKwF-JeASs_9ifcAA_pOSszVCv';
 
 const supabase = supabaseJs.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
