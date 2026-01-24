@@ -3,7 +3,10 @@
 const SUPABASE_URL = 'https://srhmhrllhavckopoteui.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_toK5FMKwF-JeASs_9ifcAA_pOSszVCv';
 
-const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabaseClient = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY
+);
 
 // Local DB (Dexie) for offline/cache
 const db = new Dexie('budgetr_db');
@@ -14,22 +17,22 @@ db.version(1).stores({
 
 /* AUTH (email + password) */
 async function signIn(email, password){
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
   if(error) throw error;
   return data;
 }
 async function signOut(){
-  const { error } = await supabase.auth.signOut();
+  const { error } = await supabaseClient.auth.signOut();
   if(error) console.error('Sign out error', error);
 }
 async function getCurrentUser(){
-  const { data } = await supabase.auth.getUser();
+  const { data } = await supabaseClient.auth.getUser();
   return data.user || null;
 }
 
 /* Server sync helpers */
 async function syncFromSupabase(){
-  const { data, error } = await supabase
+  const { data, error } = await supabaseClient
     .from('expenditures')
     .select('*')
     .order('created_at', { ascending: false });
@@ -53,7 +56,7 @@ async function syncFromSupabase(){
 }
 
 async function addExpenditureToServer(payload){
-  const { data, error } = await supabase.from('expenditures').insert([payload]).select();
+  const { data, error } = await supabaseClient.from('expenditures').insert([payload]).select();
   if(error) {
     console.error('Insert error', error);
     throw error;
@@ -61,7 +64,7 @@ async function addExpenditureToServer(payload){
   return data && data[0];
 }
 async function deleteExpenditureFromServer(id){
-  const { data, error } = await supabase.from('expenditures').delete().eq('id', id);
+  const { data, error } = await supabaseClient.from('expenditures').delete().eq('id', id);
   if(error) {
     console.error('Delete error', error);
     throw error;
@@ -73,7 +76,7 @@ async function deleteExpenditureFromServer(id){
 let _realtimeSub = null;
 function subscribeRealtime(){
   if(_realtimeSub) return;
-  _realtimeSub = supabase.channel('public:expenditures')
+  _realtimeSub = supabaseClient.channel('public:expenditures')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'expenditures' }, payload => {
       const ev = payload.eventType;
       if(ev === 'INSERT' || ev === 'UPDATE'){
@@ -98,7 +101,7 @@ function subscribeRealtime(){
 
 /* Init sync after login */
 async function initSupabaseSync(){
-  const user = (await supabase.auth.getUser()).data.user;
+  const user = (await supabaseClient.auth.getUser()).data.user;
   if(!user){
     return;
   }
@@ -127,7 +130,7 @@ async function deleteExpenditure(id){
 }
 
 /* auth state change */
-supabase.auth.onAuthStateChange((event, session) => {
+supabaseClient.auth.onAuthStateChange((event, session) => {
   if(event === 'SIGNED_IN') {
     initSupabaseSync().catch(console.error);
   }
@@ -137,7 +140,7 @@ supabase.auth.onAuthStateChange((event, session) => {
 });
 
 /* exports */
-window.supabase = supabase;
+window.supabase = supabaseClient;
 window.db = db;
 window.signIn = signIn;
 window.signOut = signOut;
