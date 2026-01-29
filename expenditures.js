@@ -18,6 +18,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         cancelAdd: !!cancelAdd
       });
       return;
+
+    // Rendering guard and delegated-delete guard
+    let _expendituresRenderToken = 0;
+    let _deleteHandlerAttached = false;
+
     }
 
     // Show/hide add screen
@@ -113,15 +118,38 @@ document.addEventListener('DOMContentLoaded', async () => {
     // render function (unchanged behavior)
     async function renderExpenditures(){
       try {
-        const items = await db.expenditures.orderBy('priority').toArray();
+        // create a token to abort stale renders
+        const myToken = ++_expendituresRenderToken;
+
         const el = document.getElementById('expList');
+        if (!el) return;
+
+        // clear UI immediately to avoid duplicates during async work
         el.innerHTML = '';
-        if (!items || items.length === 0) { el.innerHTML = '<div class="chip">No expenditures</div>'; return; }
+
+        // fetch items
+        const items = await db.expenditures.orderBy('priority').toArray();
+
+        // if another render started while we waited, abort this one
+        if (myToken !== _expendituresRenderToken) return;
+
+        if (!items || items.length === 0) {
+          el.innerHTML = '<div class="chip">No expenditures</div>';
+          return;
+        }
+
         const freq = await getSetting('frequency') || 'month';
+        // abort again if a new render started while awaiting settings
+        if (myToken !== _expendituresRenderToken) return;
         const m = multiplierFor(freq);
+
+        // build DOM in a fragment then append once (atomic)
+        const frag = document.createDocumentFragment();
         items.forEach(it => {
           const row = document.createElement('div');
           row.className = 'exp-row';
+          // store id on row for delegation convenience
+          row.dataset.id = String(it.id);
           row.innerHTML = `
             <div>
               <div class="exp-title">${escapeHtml(it.description)}</div>
@@ -134,27 +162,37 @@ document.addEventListener('DOMContentLoaded', async () => {
               <button data-id="${it.id}" class="btn ghost small del">Delete</button>
             </div>
           `;
-          el.appendChild(row);
+          frag.appendChild(row);
         });
-        // attach delete handlers
-        document.querySelectorAll('.del').forEach(btn=>{
-          btn.addEventListener('click', async (e)=>{
-            const id = Number(e.currentTarget.dataset.id);
-            if(confirm('Delete this entry?')) {
-              try {
-                await deleteExpenditure(id);
-              } catch(err){
-                console.error('Delete failed, deleting locally', err);
-                await db.expenditures.delete(id);
-              }
-              renderExpenditures();
+
+        // attach the fragment in one go
+        el.appendChild(frag);
+
+        // attach a single delegated delete handler once
+        if (!_deleteHandlerAttached) {
+          _deleteHandlerAttached = true;
+          el.addEventListener('click', async (e) => {
+            const btn = e.target.closest?.('.del') || (e.target.classList && e.target.classList.contains('del') ? e.target : null);
+            if (!btn) return;
+            const id = Number(btn.dataset.id);
+            if (!id) return;
+            if (!confirm('Delete this entry?')) return;
+            try {
+              await deleteExpenditure(id);
+            } catch (err) {
+              console.error('Delete failed, deleting locally', err);
+              await db.expenditures.delete(id);
             }
+            // re-render after deletion
+            renderExpenditures();
           });
-        });
+        }
+
       } catch (err) {
         console.error('renderExpenditures error:', err);
       }
     }
+
 
     // DB change hooks
     window.addEventListener('expendituresUpdated', renderExpenditures);
