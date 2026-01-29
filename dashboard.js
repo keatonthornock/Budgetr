@@ -10,7 +10,6 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   // when user changes, update DB and notify
   freqSelect.addEventListener('change', async (e)=>{
     await setFrequencyAndNotify(e.target.value);
-    renderAll();
   });
 
   // react when other pages/tabs change frequency
