@@ -118,4 +118,106 @@ html,body{
   .content{max-width:700px;margin:0 auto}
 }
 
+/* ------------------- bottom nav: frosted + hide on scroll ------------------- */
+.bottom-nav{
+  position:fixed;
+  left:12px;
+  right:12px;
+  bottom:calc(12px + env(safe-area-inset-bottom));
+  height:60px;
+  /* frosted glass: slightly opaque with blur */
+  background: rgba(255,255,255,0.07);
+  backdrop-filter: blur(10px) saturate(110%);
+  -webkit-backdrop-filter: blur(10px) saturate(110%);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius:30px;
+  display:flex;
+  align-items:center;
+  justify-content:space-around;
+  padding:8px 18px;
+  box-shadow:0 10px 30px rgba(2,6,23,0.7);
+  transition: transform 300ms cubic-bezier(.2,.9,.2,1), opacity 220ms ease;
+  z-index: 1200;
+}
+
+/* hidden / offscreen state */
+.bottom-nav.hidden{
+  transform: translateY(120%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* stronger contrast for icons/text */
+.nav-btn{ background:transparent; color:var(--muted); display:flex; flex-direction:column; align-items:center; gap:4px; font-size:12px; padding:6px; min-width:80px; border-radius:12px; text-decoration:none; }
+.nav-btn.active{ color: var(--accent); }
+
+/* ------------------- ensure list has safe bottom space ------------------- */
+/* Add comfortable space at the bottom of any long list so items are not tucked under nav */
+.exp-list::after {
+  content: "";
+  display: block;
+  height: calc(96px + env(safe-area-inset-bottom)); /* space for nav + extra padding */
+  width: 1px;
+}
+
+/* ------------------- modal add-screen (slide-up) ------------------- */
+/* Make the existing add-screen a fixed bottom sheet modal */
+#addScreen.card.add-screen {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  max-width: 720px;
+  margin: 0 auto;
+  transform: translateY(110%);
+  transition: transform 320ms cubic-bezier(.2,.9,.2,1), opacity 220ms ease;
+  z-index: 1300;
+  border-radius: 16px;
+  box-shadow: 0 18px 40px rgba(2,6,23,0.7);
+  background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));
+  padding: 18px;
+  /* ensure it can be scrolled if content taller than viewport */
+  max-height: calc(100vh - 120px);
+  overflow: auto;
+}
+
+/* overlay behind the modal */
+#addScreen.modal-visible::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: rgba(2,6,23,0.5);
+  z-index: 1250;
+  pointer-events: auto;
+}
+
+/* visible state */
+#addScreen.open {
+  transform: translateY(0%);
+  opacity: 1;
+}
+
+/* keep hidden class for non-modal fallback */
+.add-screen.hidden {
+  display: none !important;
+}
+
+/* ensure form inputs feel native and large enough */
+#addForm input {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.04);
+  background: rgba(255,255,255,0.01);
+  color: inherit;
+  font-size: 16px;
+}
+
+/* push the main content up when modal open to avoid overlaps on small screens (optional) */
+.body-modal-open .main {
+  /* reduces main height while modal is present (keeps background visible but not scrollable) */
+  overscroll-behavior: contain;
+}
+
 
