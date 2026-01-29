@@ -46,36 +46,102 @@ initDbHooks();
  * Set a user-specific setting locally (Dexie) and in Supabase (user_settings).
  * Returns true on success, false on failure.
  */
+// Robust setSetting: save local, then update-or-insert on server (select -> update if found -> insert if not)
 async function setSetting(key, value) {
   try {
+    console.log('[setSetting] start', { key, value });
+
     // 1) Save locally (always)
     await db.settings.put({ key, value });
+    console.log('[setSetting] saved locally');
 
-    // 2) Save to Supabase if user is logged in
-    if (supabaseClient && supabaseClient.auth) {
-      const { data: { user }, error: userErr } = await supabaseClient.auth.getUser();
-      if (userErr) {
-        console.warn('setSetting: auth.getUser error', userErr);
-      }
-      if (user) {
-        // Ensure we get any server-side error and representation back
-        const payload = { user_id: user.id, key, value };
-        const { data: upsertData, error: upsertError } = await supabaseClient
-          .from('user_settings')
-          .upsert(payload, { onConflict: 'user_id,key', returning: 'representation' });
-        
-        if (upsertError) {
-          console.error('setSetting: Supabase upsert error', upsertError, { payload });
-          return false;
-        }
-      }
+    if (!(supabaseClient && supabaseClient.auth)) {
+      console.warn('[setSetting] supabase client/auth not ready - skipping server save');
+      window.dispatchEvent(new CustomEvent('settingsChanged', { detail: { key, value } }));
+      return true;
     }
 
-    // notify listeners
-    window.dispatchEvent(new CustomEvent('settingsChanged', { detail: { key, value } }));
-    return true;
-  } catch (e) {
-    console.error('setSetting error', e);
+    // 2) Get current user
+    const { data: userData, error: userErr } = await supabaseClient.auth.getUser();
+    if (userErr) {
+      console.error('[setSetting] auth.getUser error', userErr);
+      window.dispatchEvent(new CustomEvent('settingsChanged', { detail: { key, value } }));
+      return false;
+    }
+    const user = userData.user;
+    if (!user) {
+      console.warn('[setSetting] not signed in - skipping server save');
+      window.dispatchEvent(new CustomEvent('settingsChanged', { detail: { key, value } }));
+      return false;
+    }
+
+    // 3) Try to find an existing row for this (user_id, key)
+    const { data: existing, error: selectErr } = await supabaseClient
+      .from('user_settings')
+      .select('id, value, updated_at')
+      .eq('user_id', user.id)
+      .eq('key', key)
+      .maybeSingle();
+
+    if (selectErr) {
+      // If select error is thrown, log and stop; this avoids blind inserts that cause duplicate key errors
+      console.error('[setSetting] select error', selectErr);
+      return false;
+    }
+
+    if (existing && existing.id) {
+      // 4a) Row exists -> update by id (safer than trying to match again)
+      console.log('[setSetting] existing row found', existing);
+      const { data: upd, error: updErr } = await supabaseClient
+        .from('user_settings')
+        .update({ value })
+        .eq('id', existing.id)
+        .select();
+
+      if (updErr) {
+        console.error('[setSetting] update error', updErr);
+        // If update fails with permission denied -> RLS issue, surface it
+        return false;
+      }
+
+      console.log('[setSetting] update succeeded', upd);
+      window.dispatchEvent(new CustomEvent('settingsChanged', { detail: { key, value } }));
+      return true;
+    } else {
+      // 4b) No row -> safe to insert
+      console.log('[setSetting] no existing row, inserting new one');
+      const payload = { user_id: user.id, key, value };
+      const { data: ins, error: insErr } = await supabaseClient
+        .from('user_settings')
+        .insert(payload, { returning: 'representation' });
+
+      if (insErr) {
+        // If the insert fails with duplicate key, log the full error; we avoid blind duplicates by selecting first,
+        // but concurrent writes from another client could still produce a race — handle gracefully.
+        console.error('[setSetting] insert error', insErr);
+        if (insErr.code === '23505' || /duplicate key/i.test(insErr.message || '')) {
+          console.warn('[setSetting] duplicate on insert — retrying update path');
+          // try update again as a fallback
+          const { data: retry, error: retryErr } = await supabaseClient
+            .from('user_settings')
+            .update({ value })
+            .eq('user_id', user.id)
+            .eq('key', key)
+            .select();
+          console.log('[setSetting] retry update result', { retry, retryErr });
+          if (retryErr) return false;
+          window.dispatchEvent(new CustomEvent('settingsChanged', { detail: { key, value } }));
+          return true;
+        }
+        return false;
+      }
+
+      console.log('[setSetting] insert succeeded', ins);
+      window.dispatchEvent(new CustomEvent('settingsChanged', { detail: { key, value } }));
+      return true;
+    }
+  } catch (err) {
+    console.error('[setSetting] unexpected error', err);
     return false;
   }
 }
