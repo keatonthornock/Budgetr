@@ -36,8 +36,6 @@
         try {
           // call the wrapper from common.js (must be defined there as window.signIn)
           await signIn(email, password);
-          // initialize sync now that session is set
-          await initSupabaseSync();
           // go to dashboard
           window.location.href = 'index.html';
         } catch (err) {
@@ -46,13 +44,8 @@
         }
       });
 
-      // if already signed in, skip login page
-      (async ()=>{
-        try {
-          const user = await getCurrentUser();
-          if(user) location.href = 'index.html';
-        } catch(e){ /* ignore */ }
-      })();
+      await signIn(email, password);
+      window.location.href = 'index.html';
     });
   </script>
 </body>
