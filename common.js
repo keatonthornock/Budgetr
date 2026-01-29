@@ -41,24 +41,61 @@ initDbHooks();
 /* ---------- simple app helpers (settings, formatting, misc) ---------- */
 
 // Settings stored in Dexie 'settings' table as { key: string, value: any }
-async function getSetting(key) {
-  try {
-    const row = await db.settings.get(key);
-    return row ? row.value : null;
-  } catch (e) {
-    console.error('getSetting error', e);
-    return null;
-  }
-}
 async function setSetting(key, value) {
   try {
+    // 1️⃣ Save locally
     await db.settings.put({ key, value });
+
+    // 2️⃣ Save to Supabase if user is logged in
+    if (supabaseClient && supabaseClient.auth) {
+      const { data: { user } } = await supabaseClient.auth.getUser();
+      if (user) {
+        await supabaseClient.from('user_settings').upsert({
+          user_id: user.id,
+          key,
+          value
+        });
+      }
+    }
+
     // notify listeners
     window.dispatchEvent(new CustomEvent('settingsChanged', { detail: { key, value } }));
     return true;
   } catch (e) {
     console.error('setSetting error', e);
     return false;
+  }
+}
+
+async function getSetting(key) {
+  try {
+    // 1️⃣ Try local first
+    const row = await db.settings.get(key);
+    if (row?.value !== undefined) return row.value;
+
+    // 2️⃣ Fall back to Supabase if user is logged in
+    if (supabaseClient && supabaseClient.auth) {
+      const { data: { user } } = await supabaseClient.auth.getUser();
+      if (user) {
+        const { data } = await supabaseClient
+          .from('user_settings')
+          .select('value')
+          .eq('user_id', user.id)
+          .eq('key', key)
+          .single();
+
+        if (data) {
+          // store locally for offline / next time
+          await db.settings.put({ key, value: data.value });
+          return data.value;
+        }
+      }
+    }
+
+    return null;
+  } catch (e) {
+    console.error('getSetting error', e);
+    return null;
   }
 }
 
