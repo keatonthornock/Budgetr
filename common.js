@@ -2,10 +2,17 @@
 const SUPABASE_URL = 'https://srhmhrllhavckopoteui.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_toK5FMKwF-JeASs_9ifcAA_pOSszVCv';
 
-const supabaseClient = window.supabase.createClient(
-  SUPABASE_URL,
-  SUPABASE_ANON_KEY
-);
+// Try to initialize Supabase client, but don't let a failure stop the file
+let supabaseClient = null;
+try {
+  if (window.supabase && typeof window.supabase.createClient === 'function') {
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  } else {
+    console.warn('Supabase SDK not found before common.js loaded. Running in offline-limited mode until SDK loads.');
+  }
+} catch (e) {
+  console.error('Error initializing supabaseClient (continuing in offline mode):', e);
+}
 
 // Local DB (Dexie) for offline/cache
 const db = new Dexie('budgetr_db');
@@ -14,15 +21,7 @@ db.version(1).stores({
   settings: 'key'
 });
 
-/* auth state change */
-supabaseClient.auth.onAuthStateChange((event, session) => {
-  if(event === 'SIGNED_IN') {
-    initSupabaseSync().catch(console.error);
-  }
-  if(event === 'SIGNED_OUT') {
-    console.log('Signed out');
-  }
-});
+/* ---------- simple app helpers (settings, formatting, misc) ---------- */
 
 // Settings stored in Dexie 'settings' table as { key: string, value: any }
 async function getSetting(key) {
@@ -56,7 +55,7 @@ async function setFrequencyAndNotify(freq) {
 function multiplierFor(freq) {
   switch ((freq || 'month').toLowerCase()) {
     case 'year': return 12;
-    case 'biweekly': return 12 / 26; // if amounts are monthly base and you want per biweek: adjust as needed
+    case 'biweekly': return 12 / 26;
     case 'weekly': return 12 / 52;
     case 'month':
     default: return 1;
@@ -84,7 +83,7 @@ function formatMoney(n) {
   }
 }
 
-/* expose helpers globally so page scripts can call them */
+/* expose helpers globally so page scripts can call them immediately */
 window.getSetting = getSetting;
 window.setSetting = setSetting;
 window.setFrequencyAndNotify = setFrequencyAndNotify;
@@ -92,23 +91,50 @@ window.multiplierFor = multiplierFor;
 window.escapeHtml = escapeHtml;
 window.formatMoney = formatMoney;
 
+/* AUTH state change — only attach if supabaseClient exists */
+if (supabaseClient && supabaseClient.auth && typeof supabaseClient.auth.onAuthStateChange === 'function') {
+  supabaseClient.auth.onAuthStateChange((event, session) => {
+    if(event === 'SIGNED_IN') {
+      // initSupabaseSync may be defined later, but function declarations are hoisted
+      initSupabaseSync().catch(console.error);
+    }
+    if(event === 'SIGNED_OUT') {
+      console.log('Signed out');
+    }
+  });
+}
+
 /* AUTH (email + password) */
 async function signIn(email, password){
+  if (!supabaseClient || !supabaseClient.auth) throw new Error('Supabase client not initialized');
   const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
   if(error) throw error;
   return data;
 }
 async function signOut(){
+  if (!supabaseClient || !supabaseClient.auth) {
+    console.warn('Supabase client not initialized — signOut no-op');
+    return;
+  }
   const { error } = await supabaseClient.auth.signOut();
   if(error) console.error('Sign out error', error);
 }
 async function getCurrentUser(){
+  if (!supabaseClient || !supabaseClient.auth) {
+    // return null (not authenticated) if supabase isn't ready
+    return null;
+  }
   const { data } = await supabaseClient.auth.getUser();
   return data.user || null;
 }
 
 /* Server sync helpers */
 async function syncFromSupabase(){
+  if (!supabaseClient) {
+    console.warn('syncFromSupabase: supabaseClient not initialized — skipping server sync');
+    return;
+  }
+
   const { data, error } = await supabaseClient
     .from('expenditures')
     .select('*')
@@ -133,6 +159,7 @@ async function syncFromSupabase(){
 }
 
 async function addExpenditureToServer(payload){
+  if (!supabaseClient) throw new Error('Supabase client not initialized');
   const { data, error } = await supabaseClient.from('expenditures').insert([payload]).select();
   if(error) {
     console.error('Insert error', error);
@@ -141,6 +168,7 @@ async function addExpenditureToServer(payload){
   return data && data[0];
 }
 async function deleteExpenditureFromServer(id){
+  if (!supabaseClient) throw new Error('Supabase client not initialized');
   const { data, error } = await supabaseClient.from('expenditures').delete().eq('id', id);
   if(error) {
     console.error('Delete error', error);
@@ -152,6 +180,10 @@ async function deleteExpenditureFromServer(id){
 /* Realtime */
 let _realtimeSub = null;
 function subscribeRealtime(){
+  if(!supabaseClient) {
+    console.warn('subscribeRealtime: supabaseClient not initialized');
+    return;
+  }
   if(_realtimeSub) return;
   _realtimeSub = supabaseClient.channel('public:expenditures')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'expenditures' }, payload => {
@@ -179,6 +211,11 @@ function subscribeRealtime(){
 /* Init sync after login */
 async function initSupabaseSync(){
   if (!window.db) return; // ⛑ safety net
+
+  if (!supabaseClient || !supabaseClient.auth) {
+    console.warn('initSupabaseSync: supabase client not ready');
+    return;
+  }
 
   const user = (await supabaseClient.auth.getUser()).data.user;
   if(!user) return;
@@ -216,7 +253,6 @@ function setActiveNav(id) {
 
 // expose globally
 window.setActiveNav = setActiveNav;
-
 
 /* exports */
 window.supabaseClient = supabaseClient;
