@@ -1,5 +1,17 @@
 // expenditures.js — robust version
 document.addEventListener('DOMContentLoaded', async () => {
+  // --- HARD GATE: wait for auth + supabase sync before rendering ---
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (!session || !session.user) {
+    location.href = 'login.html';
+    return;
+  }
+
+  let renderQueued = false;
+  
+  // Wait for server → Dexie sync to fully complete
+  await initSupabaseSync();
+  
   try {
     if (typeof setActiveNav === 'function') setActiveNav('navExpend');
 
@@ -195,7 +207,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     // DB change hooks
     if (!window._expendituresUpdatedListenerAttached) {
       window._expendituresUpdatedListenerAttached = true;
-      window.addEventListener('expendituresUpdated', renderExpenditures);
+      window.addEventListener('expendituresUpdated', () => {
+        if (renderQueued) return;
+        renderQueued = true;
+        requestAnimationFrame(() => {
+          renderQueued = false;
+          renderExpenditures();
+        });
+      });
     }
 
     // initial render
