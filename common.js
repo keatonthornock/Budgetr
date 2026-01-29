@@ -1,5 +1,4 @@
 // common.js — Supabase + Dexie sync for Budgetr
-// REPLACE these two with your actual Supabase project values:
 const SUPABASE_URL = 'https://srhmhrllhavckopoteui.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_toK5FMKwF-JeASs_9ifcAA_pOSszVCv';
 
@@ -24,6 +23,74 @@ supabaseClient.auth.onAuthStateChange((event, session) => {
     console.log('Signed out');
   }
 });
+
+// Settings stored in Dexie 'settings' table as { key: string, value: any }
+async function getSetting(key) {
+  try {
+    const row = await db.settings.get(key);
+    return row ? row.value : null;
+  } catch (e) {
+    console.error('getSetting error', e);
+    return null;
+  }
+}
+async function setSetting(key, value) {
+  try {
+    await db.settings.put({ key, value });
+    // notify listeners
+    window.dispatchEvent(new CustomEvent('settingsChanged', { detail: { key, value } }));
+    return true;
+  } catch (e) {
+    console.error('setSetting error', e);
+    return false;
+  }
+}
+
+// frequency helper used in UI (month/year/weekly/biweekly)
+async function setFrequencyAndNotify(freq) {
+  await setSetting('frequency', freq);
+  window.dispatchEvent(new Event('frequencyChange'));
+}
+
+// multiplier: convert base monthly amounts depending on view frequency
+function multiplierFor(freq) {
+  switch ((freq || 'month').toLowerCase()) {
+    case 'year': return 12;
+    case 'biweekly': return 12 / 26; // if amounts are monthly base and you want per biweek: adjust as needed
+    case 'weekly': return 12 / 52;
+    case 'month':
+    default: return 1;
+  }
+}
+
+// small safe HTML escape for rendering
+function escapeHtml(str) {
+  if (str == null) return '';
+  return String(str)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+// money formatting (USD-style). Adjust locale/currency as desired.
+function formatMoney(n) {
+  const num = Number(n || 0);
+  try {
+    return num.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 2 });
+  } catch (e) {
+    return '$' + num.toFixed(2);
+  }
+}
+
+/* expose helpers globally so page scripts can call them */
+window.getSetting = getSetting;
+window.setSetting = setSetting;
+window.setFrequencyAndNotify = setFrequencyAndNotify;
+window.multiplierFor = multiplierFor;
+window.escapeHtml = escapeHtml;
+window.formatMoney = formatMoney;
 
 /* AUTH (email + password) */
 async function signIn(email, password){
