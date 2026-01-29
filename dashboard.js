@@ -39,33 +39,37 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     const currentNet = (await getSetting('netMonthly'));
     const currentSaved = (await getSetting('currentSavings'));
     
-    const netRaw = prompt('Set your net monthly income (number):', currentNet != null ? String(currentNet) : '');
-    if (netRaw !== null) {
-      const parsed = parseFloat(netRaw.replace(/[^\d.\-]/g, ''));
-      if (!Number.isNaN(parsed)) {
-        await setSetting('netMonthly', parsed);
-      } else {
-        // user submitted an invalid number — keep previous value
-        alert('Net income not saved: invalid number.');
+    // suppress the cross-tab handler while we update locally in this flow
+    suppressSettingsEvent = true;
+    try {
+      const netRaw = prompt('Set your net monthly income (number):', currentNet != null ? String(currentNet) : '');
+      if (netRaw !== null) {
+        const parsed = parseFloat(netRaw.replace(/[^\d.\-]/g, ''));
+        if (!Number.isNaN(parsed)) {
+          await setSetting('netMonthly', parsed);
+        } else {
+          // user submitted an invalid number — keep previous value
+          alert('Net income not saved: invalid number.');
+        }
       }
-    }
-    
-    const savedRaw = prompt('Set current savings (optional):', currentSaved != null ? String(currentSaved) : '');
-    if (savedRaw !== null) {
-      const parsedSaved = parseFloat(savedRaw.replace(/[^\d.\-]/g, ''));
-      if (!Number.isNaN(parsedSaved)) {
-        await setSetting('currentSavings', parsedSaved);
-      } else if (savedRaw.trim() === '') {
-        // allow empty -> 0
-        await setSetting('currentSavings', 0);
-      } else {
-        alert('Current savings not saved: invalid number.');
+      
+      const savedRaw = prompt('Set current savings (optional):', currentSaved != null ? String(currentSaved) : '');
+      if (savedRaw !== null) {
+        const parsedSaved = parseFloat(savedRaw.replace(/[^\d.\-]/g, ''));
+        if (!Number.isNaN(parsedSaved)) {
+          await setSetting('currentSavings', parsedSaved);
+        } else if (savedRaw.trim() === '') {
+          // allow empty -> 0
+          await setSetting('currentSavings', 0);
+        } else {
+          alert('Current savings not saved: invalid number.');
+        }
       }
+    } finally {
+      // re-enable settings event handling and perform a single UI refresh
+      suppressSettingsEvent = false;
+      renderAll();
     }
-
-    // Immediately refresh UI after user finishes the settings flow
-    // (setSetting already dispatches settingsChanged for cross-tab sync)
-    renderAll();
   });
 
 
