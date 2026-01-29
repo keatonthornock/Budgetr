@@ -21,6 +21,21 @@ db.version(1).stores({
   settings: 'key'
 });
 
+let hooksInitialized = false;
+
+function initDbHooks() {
+  if (hooksInitialized) return;
+  hooksInitialized = true;
+
+  db.expenditures.hook('creating', () => {
+    window.dispatchEvent(new Event('expendituresUpdated'));
+  });
+
+  db.expenditures.hook('deleting', () => {
+    window.dispatchEvent(new Event('expendituresUpdated'));
+  });
+}
+
 /* ---------- simple app helpers (settings, formatting, misc) ---------- */
 
 // Settings stored in Dexie 'settings' table as { key: string, value: any }
