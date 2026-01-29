@@ -60,7 +60,34 @@ document.addEventListener('DOMContentLoaded', async ()=>{
       priority,
       date: new Date().toISOString(),
       created_at: new Date().toISOString()
-  };
+    };
+
+    // UI: disable save to prevent double submit
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving...';
+  
+    try {
+      // Use the Supabase wrapper; it will fallback to local if server fails
+      await addExpenditure(payload);
+  
+      // show a brief success (optional)
+      // You can replace alert with a nicer toast if you add one
+      // alert('Saved!');
+  
+    } catch (err) {
+      console.error('Add failed, saved locally', err);
+      alert('Save failed (saved locally). Check console for details.');
+    } finally {
+      // restore UI state
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Save';
+      addForm.reset();
+      addScreen.classList.add('hidden');
+  
+      // re-render the list (local DB updated anytime fallback happens)
+      renderExpenditures();
+    }
+  });
 
   async function renderExpenditures(){
     const items = await db.expenditures.orderBy('priority').toArray();
