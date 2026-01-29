@@ -44,8 +44,13 @@
         }
       });
 
-      await signIn(email, password);
-      window.location.href = 'index.html';
+      // if already signed in, skip login page
+      (async ()=>{
+        try {
+          const user = await getCurrentUser();
+          if(user) location.href = 'index.html';
+        } catch(e){ /* ignore */ }
+      })();
     });
   </script>
 </body>
