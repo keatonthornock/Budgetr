@@ -35,27 +35,32 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     getSetting('frequency').then(val => { freqSelect.value = val; renderExpenditures(); });
   });
 
-  addForm.addEventListener('submit', async (e)=>{
+  addForm.addEventListener('submit', async (e) => {
     e.preventDefault();
+  
+    const saveBtn = document.getElementById('saveAddBtn');
+    // read and sanitize inputs
     const desc = document.getElementById('fDesc').value.trim();
-    const amount = parseFloat(document.getElementById('fAmount').value || 0);
-    const date = document.getElementById('fDate').value ? new Date(document.getElementById('fDate').value).toISOString() : new Date().toISOString();
+    const amountRaw = (document.getElementById('fAmount').value || '').trim();
+    // accept commas and dots, remove thousands separators if any
+    const amountNormalized = amountRaw.replace(/\s/g, '').replace(/,/g, '.').replace(/[^0-9.-]/g, '');
+    const amount = parseFloat(amountNormalized);
     const category = document.getElementById('fCategory').value.trim() || 'Uncategorized';
-    const priority = parseInt(document.getElementById('fPriority').value || 99);
-    if(!desc || !amount) return alert('Please add description and amount');
-
-    // Use the Supabase wrapper; it will fallback to local if server fails
-    try {
-      await addExpenditure({ description: desc, amount, category, priority, date });
-    } catch(err) {
-      console.error('Add failed, saved locally', err);
-    }
-
-    addForm.reset();
-    addScreen.classList.add('hidden');
-    // local UI update will occur via 'expendituresUpdated' event or you can force a render
-    renderExpenditures();
-  });
+    const priority = parseInt(document.getElementById('fPriority').value || 99, 10);
+  
+    // validation
+    if (!desc) return alert('Please add a description.');
+    if (Number.isNaN(amount) || amount <= 0) return alert('Please enter a valid amount greater than 0.');
+  
+    // prepare payload (no date input provided => use now)
+    const payload = {
+      description: desc,
+      amount,
+      category,
+      priority,
+      date: new Date().toISOString(),
+      created_at: new Date().toISOString()
+  };
 
   async function renderExpenditures(){
     const items = await db.expenditures.orderBy('priority').toArray();
