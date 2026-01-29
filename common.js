@@ -76,6 +76,7 @@ async function getSetting(key) {
     // 2️⃣ Fall back to Supabase if user is logged in
     if (supabaseClient && supabaseClient.auth) {
       const { data: { user } } = await supabaseClient.auth.getUser();
+      console.log('Current user in setSetting:', user);
       if (user) {
         const { data } = await supabaseClient
           .from('user_settings')
