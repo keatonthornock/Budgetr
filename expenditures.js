@@ -19,10 +19,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
       return;
 
-    // Rendering guard and delegated-delete guard
-    let _expendituresRenderToken = 0;
-    let _deleteHandlerAttached = false;
-
     }
 
     // Show/hide add screen
