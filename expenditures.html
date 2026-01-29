@@ -47,38 +47,25 @@
           </div>
           <div id="expList" class="exp-list"></div>
         </div>
-
-        <div id="addScreen" class="card add-screen hidden">
-          <h3>Add Expense</h3>
-          <form id="addForm" class="form" autocomplete="off" novalidate>
-            <input id="fDesc" placeholder="Description (e.g., Mortgage)" required />
-            <div class="row">
-              <input id="fAmount" type="text" inputmode="decimal" placeholder="Amount (monthly base)" required />
-              <!-- date removed -->
-            </div>
-            <div class="row">
-              <input id="fCategory" placeholder="Category (e.g., Housing)" />
-              <input id="fPriority" type="number" min="1" placeholder="Priority (1 = highest)" />
-            </div>
-            <div class="actions">
-              <button type="button" id="cancelAdd" class="btn ghost">Cancel</button>
-              <button type="submit" class="btn primary">Save</button>
-            </div>
-          </form>
-        </div>
       </div>
     </main>
-
-    <!-- bottom nav -->
-    <nav class="bottom-nav">
-      <a class="nav-btn" href="index.html" id="navDashboard"><span class="nav-icon">🏠</span><span>Dashboard</span></a>
-      <a class="nav-btn active" href="expenditures.html" id="navExpend"><span class="nav-icon">📋</span><span>Expenditures</span></a>
-      <a class="nav-btn" href="goals.html" id="navGoals"><span class="nav-icon">🎯</span><span>Goals</span></a>
-    </nav>
   </div>
 
-  <!-- page-specific code (deferred) -->
-  <script src="expenditures.js" defer></script>
-  
-</body>
-</html>
+  <!-- Move modal outside main so it overlays everything -->
+  <div id="addScreen" class="card add-screen hidden" aria-hidden="true">
+    <h3>Add Expense</h3>
+    <form id="addForm" class="form" autocomplete="off" novalidate>
+      <input id="fDesc" name="description" placeholder="Description (e.g., Mortgage)" required />
+      <input id="fAmount" name="amount" type="number" inputmode="decimal" placeholder="Amount (monthly base)" required />
+      <input id="fCategory" name="category" placeholder="Category (e.g., Housing)" />
+      <input id="fPriority" name="priority" type="number" min="1" placeholder="Priority (1 = highest)" />
+      <div class="actions">
+        <button type="button" id="cancelAdd" class="btn ghost">Cancel</button>
+        <button type="submit" class="btn primary">Save</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- bottom nav -->
+  <nav class="bottom-nav">
+    <a
