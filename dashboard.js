@@ -17,6 +17,18 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     getSetting('frequency').then(val => { freqSelect.value = val; renderAll(); });
   });
 
+  // react when settings change (from this tab or others)
+  window.addEventListener('settingsChanged', (ev) => {
+    try {
+      const detail = ev?.detail || {};
+      const key = detail.key;
+      // only re-render for keys that affect this screen
+      if (['netMonthly', 'currentSavings', 'frequency'].includes(key)) {
+        renderAll();
+      }
+    } catch(e) { console.error('settingsChanged handler error', e); }
+  });
+
   document.getElementById('openSettings').addEventListener('click', async ()=>{
     const currentNet = (await getSetting('netMonthly'));
     const currentSaved = (await getSetting('currentSavings'));
@@ -45,7 +57,11 @@ document.addEventListener('DOMContentLoaded', async ()=>{
       }
     }
 
+    // Immediately refresh UI after user finishes the settings flow
+    // (setSetting already dispatches settingsChanged for cross-tab sync)
+    renderAll();
   });
+
 
   async function renderAll(){
     const items = await db.expenditures.toArray();
