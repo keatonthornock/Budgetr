@@ -38,7 +38,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (freqSelect) freqSelect.value = f;
     freqSelect.addEventListener('change', async (e) => {
       await setFrequencyAndNotify(e.target.value);
-      renderExpenditures();
     });
     window.addEventListener('frequencyChange', () => {
       getSetting('frequency').then(val => { if (freqSelect) freqSelect.value = val; renderExpenditures(); });
