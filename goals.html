@@ -23,8 +23,8 @@
   <script>
     (async function(){
       try {
-        const user = await getCurrentUser();
-        if(!user) {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if(!session || !session.user) {
           location.href = 'login.html';
           return;
         }
