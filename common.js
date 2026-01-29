@@ -108,19 +108,6 @@ window.multiplierFor = multiplierFor;
 window.escapeHtml = escapeHtml;
 window.formatMoney = formatMoney;
 
-/* AUTH state change — only attach if supabaseClient exists */
-if (supabaseClient && supabaseClient.auth && typeof supabaseClient.auth.onAuthStateChange === 'function') {
-  supabaseClient.auth.onAuthStateChange((event, session) => {
-    if(event === 'SIGNED_IN') {
-      // initSupabaseSync may be defined later, but function declarations are hoisted
-      initSupabaseSync().catch(console.error);
-    }
-    if(event === 'SIGNED_OUT') {
-      console.log('Signed out');
-    }
-  });
-}
-
 /* AUTH (email + password) */
 async function signIn(email, password){
   if (!supabaseClient || !supabaseClient.auth) throw new Error('Supabase client not initialized');
