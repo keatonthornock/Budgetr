@@ -159,8 +159,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // DB change hooks
     window.addEventListener('expendituresUpdated', renderExpenditures);
-    db.expenditures.hook('creating', ()=> setTimeout(renderExpenditures, 80));
-    db.expenditures.hook('deleting', ()=> setTimeout(renderExpenditures, 80));
 
     // initial render
     renderExpenditures();
