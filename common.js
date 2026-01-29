@@ -40,21 +40,39 @@ initDbHooks();
 
 /* ---------- simple app helpers (settings, formatting, misc) ---------- */
 
-// Settings stored in Dexie 'settings' table as { key: string, value: any }
+// ---------- Improved settings helpers (replace existing setSetting / getSetting) ----------
+
+/**
+ * Set a user-specific setting locally (Dexie) and in Supabase (user_settings).
+ * Returns true on success, false on failure.
+ */
 async function setSetting(key, value) {
   try {
-    // 1️⃣ Save locally
+    // 1) Save locally (always)
     await db.settings.put({ key, value });
 
-    // 2️⃣ Save to Supabase if user is logged in
+    // 2) Save to Supabase if user is logged in
     if (supabaseClient && supabaseClient.auth) {
-      const { data: { user } } = await supabaseClient.auth.getUser();
+      const { data: { user }, error: userErr } = await supabaseClient.auth.getUser();
+      if (userErr) {
+        console.warn('setSetting: auth.getUser error', userErr);
+      }
       if (user) {
-        await supabaseClient.from('user_settings').upsert({
-          user_id: user.id,
-          key,
-          value
-        });
+        // Ensure we get any server-side error and representation back
+        const payload = { user_id: user.id, key, value };
+        const { data: upsertData, error: upsertError } =
+          await supabaseClient
+            .from('user_settings')
+            .upsert(payload, { returning: 'representation' });
+
+        if (upsertError) {
+          console.error('setSetting: Supabase upsert error', upsertError, { payload });
+          // If upsert failed at server, don't throw (we already saved locally), but return false
+          return false;
+        } else {
+          // success - optional: log or store returned row
+          // console.debug('setSetting: upsert result', upsertData);
+        }
       }
     }
 
@@ -67,26 +85,41 @@ async function setSetting(key, value) {
   }
 }
 
+/**
+ * Get a setting: prefer local Dexie copy; fallback to Supabase for the signed-in user.
+ * Returns the raw stored value or null if not found / error.
+ */
 async function getSetting(key) {
   try {
-    // 1️⃣ Try local first
+    // 1) Try local first
     const row = await db.settings.get(key);
-    if (row?.value !== undefined) return row.value;
+    if (row && row.value !== undefined) {
+      return row.value;
+    }
 
-    // 2️⃣ Fall back to Supabase if user is logged in
+    // 2) Fall back to Supabase if user is logged in
     if (supabaseClient && supabaseClient.auth) {
-      const { data: { user } } = await supabaseClient.auth.getUser();
-      console.log('Current user in setSetting:', user);
+      const { data: { user }, error: userErr } = await supabaseClient.auth.getUser();
+      if (userErr) {
+        console.warn('getSetting: auth.getUser error', userErr);
+      }
       if (user) {
-        const { data } = await supabaseClient
+        // maybeSingle avoids throwing when there are 0 rows. If there are multiple rows,
+        // Supabase will return an error, which we check.
+        const { data, error } = await supabaseClient
           .from('user_settings')
           .select('value')
           .eq('user_id', user.id)
           .eq('key', key)
-          .single();
+          .maybeSingle();
 
-        if (data) {
-          // store locally for offline / next time
+        if (error) {
+          console.error('getSetting: Supabase select error', error, { user_id: user.id, key });
+          return null;
+        }
+
+        if (data && data.value !== undefined) {
+          // update local cache for offline use
           await db.settings.put({ key, value: data.value });
           return data.value;
         }
