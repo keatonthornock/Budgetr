@@ -24,12 +24,12 @@
     (async function(){
       try {
         // getCurrentUser and initSupabaseSync are defined in common.js
-        const user = await getCurrentUser();
-        if(!user) {
-          // not signed in: go to login page
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if(!session || !session.user) {
           location.href = 'login.html';
           return;
         }
+        await initSupabaseSync();
         // initialize sync (fetch server rows and subscribe realtime)
         await initSupabaseSync();
       } catch (err) {
