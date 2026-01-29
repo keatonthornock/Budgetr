@@ -18,26 +18,6 @@
 
   <!-- common (init supabase client + Dexie + helpers) - load synchronously so auth-check can run immediately -->
   <script src="common.js"></script>
-  
-  <!-- AUTH CHECK: redirect to login if not signed in, otherwise init sync -->
-  <script>
-    (async function(){
-      try {
-        // getCurrentUser and initSupabaseSync are defined in common.js
-        const { data: { session } } = await supabaseClient.auth.getSession();
-        if(!session || !session.user) {
-          location.href = 'login.html';
-          return;
-        }
-        // initialize sync (fetch server rows and subscribe realtime)
-        await initSupabaseSync();
-      } catch (err) {
-        console.error('Auth/init check failed', err);
-        // Redirect to login to allow re-auth
-        location.href = 'login.html';
-      }
-    })();
-  </script>
 
 </head>
 
