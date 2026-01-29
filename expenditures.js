@@ -20,6 +20,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
+    // Rendering guard and delegation guard (prevents duplicated DOM nodes / handlers)
+    let _expendituresRenderToken = 0;
+    let _expListDelegateAttached = false;
+
+
     // Show/hide add screen
     showAddBtn.addEventListener('click', () => {
       console.log('Add button clicked');
@@ -113,15 +118,36 @@ document.addEventListener('DOMContentLoaded', async () => {
     // render function (unchanged behavior)
     async function renderExpenditures(){
       try {
-        const items = await db.expenditures.orderBy('priority').toArray();
+        // render token to ignore stale renders
+        const myToken = ++_expendituresRenderToken;
+
         const el = document.getElementById('expList');
+        if (!el) return;
+
+        // clear immediately to avoid visible duplicates while waiting
         el.innerHTML = '';
-        if (!items || items.length === 0) { el.innerHTML = '<div class="chip">No expenditures</div>'; return; }
+
+        // fetch items
+        const items = await db.expenditures.orderBy('priority').toArray();
+
+        // if another render started, abort this one
+        if (myToken !== _expendituresRenderToken) return;
+
+        if (!items || items.length === 0) {
+          el.innerHTML = '<div class="chip">No expenditures</div>';
+          return;
+        }
+
         const freq = await getSetting('frequency') || 'month';
+        if (myToken !== _expendituresRenderToken) return;
         const m = multiplierFor(freq);
-        items.forEach(it => {
+
+        // build fragment
+        const frag = document.createDocumentFragment();
+        for (const it of items) {
           const row = document.createElement('div');
           row.className = 'exp-row';
+          row.dataset.id = String(it.id);
           row.innerHTML = `
             <div>
               <div class="exp-title">${escapeHtml(it.description)}</div>
@@ -134,30 +160,43 @@ document.addEventListener('DOMContentLoaded', async () => {
               <button data-id="${it.id}" class="btn ghost small del">Delete</button>
             </div>
           `;
-          el.appendChild(row);
-        });
-        // attach delete handlers
-        document.querySelectorAll('.del').forEach(btn=>{
-          btn.addEventListener('click', async (e)=>{
-            const id = Number(e.currentTarget.dataset.id);
-            if(confirm('Delete this entry?')) {
-              try {
-                await deleteExpenditure(id);
-              } catch(err){
-                console.error('Delete failed, deleting locally', err);
-                await db.expenditures.delete(id);
-              }
-              renderExpenditures();
+          frag.appendChild(row);
+        }
+
+        // atomic replace
+        el.replaceChildren(frag);
+
+        // attach delegated delete handler once
+        if (!_expListDelegateAttached) {
+          _expListDelegateAttached = true;
+          el.addEventListener('click', async (e) => {
+            const btn = e.target.closest ? e.target.closest('.del') : (e.target.classList && e.target.classList.contains('del') ? e.target : null);
+            if (!btn) return;
+            const id = Number(btn.dataset.id);
+            if (!id) return;
+            if (!confirm('Delete this entry?')) return;
+            try {
+              await deleteExpenditure(id);
+            } catch (err) {
+              console.error('Delete failed, deleting locally', err);
+              await db.expenditures.delete(id);
             }
+            // fresh render
+            renderExpenditures();
           });
-        });
+        }
+
       } catch (err) {
         console.error('renderExpenditures error:', err);
       }
     }
 
+
     // DB change hooks
-    window.addEventListener('expendituresUpdated', renderExpenditures);
+    if (!window._expendituresUpdatedListenerAttached) {
+      window._expendituresUpdatedListenerAttached = true;
+      window.addEventListener('expendituresUpdated', renderExpenditures);
+    }
 
     // initial render
     renderExpenditures();
