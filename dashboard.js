@@ -92,9 +92,6 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     });
   }
 
-  // react to DB changes: simple hooks to re-render
-  db.expenditures.hook('creating', ()=> setTimeout(renderAll, 80));
-  db.expenditures.hook('deleting', ()=> setTimeout(renderAll, 80));
   // initial render
   renderAll();
 });
