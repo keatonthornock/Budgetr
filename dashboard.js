@@ -18,13 +18,33 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   });
 
   document.getElementById('openSettings').addEventListener('click', async ()=>{
-    const currentNet = await getSetting('netMonthly') || '';
-    const currentSaved = await getSetting('currentSavings') || '';
-    const net = prompt('Set your net monthly income (number):', currentNet);
-    if(net !== null) await setSetting('netMonthly', parseFloat(net) || 0);
-    const saved = prompt('Set current savings (optional):', currentSaved);
-    if(saved !== null) await setSetting('currentSavings', parseFloat(saved) || 0);
-    renderAll();
+    const currentNet = (await getSetting('netMonthly'));
+    const currentSaved = (await getSetting('currentSavings'));
+    
+    const netRaw = prompt('Set your net monthly income (number):', currentNet != null ? String(currentNet) : '');
+    if (netRaw !== null) {
+      const parsed = parseFloat(netRaw.replace(/[^\d.\-]/g, ''));
+      if (!Number.isNaN(parsed)) {
+        await setSetting('netMonthly', parsed);
+      } else {
+        // user submitted an invalid number — keep previous value
+        alert('Net income not saved: invalid number.');
+      }
+    }
+    
+    const savedRaw = prompt('Set current savings (optional):', currentSaved != null ? String(currentSaved) : '');
+    if (savedRaw !== null) {
+      const parsedSaved = parseFloat(savedRaw.replace(/[^\d.\-]/g, ''));
+      if (!Number.isNaN(parsedSaved)) {
+        await setSetting('currentSavings', parsedSaved);
+      } else if (savedRaw.trim() === '') {
+        // allow empty -> 0
+        await setSetting('currentSavings', 0);
+      } else {
+        alert('Current savings not saved: invalid number.');
+      }
+    }
+
   });
 
   async function renderAll(){
