@@ -29,7 +29,6 @@
           location.href = 'login.html';
           return;
         }
-        await initSupabaseSync();
         // initialize sync (fetch server rows and subscribe realtime)
         await initSupabaseSync();
       } catch (err) {
