@@ -36,6 +36,8 @@ function initDbHooks() {
   });
 }
 
+initDbHooks();
+
 /* ---------- simple app helpers (settings, formatting, misc) ---------- */
 
 // Settings stored in Dexie 'settings' table as { key: string, value: any }
