@@ -60,18 +60,13 @@ async function setSetting(key, value) {
       if (user) {
         // Ensure we get any server-side error and representation back
         const payload = { user_id: user.id, key, value };
-        const { data: upsertData, error: upsertError } =
-          await supabaseClient
-            .from('user_settings')
-            .upsert(payload, { returning: 'representation' });
-
+        const { data: upsertData, error: upsertError } = await supabaseClient
+          .from('user_settings')
+          .upsert(payload, { onConflict: 'user_id,key', returning: 'representation' });
+        
         if (upsertError) {
           console.error('setSetting: Supabase upsert error', upsertError, { payload });
-          // If upsert failed at server, don't throw (we already saved locally), but return false
           return false;
-        } else {
-          // success - optional: log or store returned row
-          // console.debug('setSetting: upsert result', upsertData);
         }
       }
     }
