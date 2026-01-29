@@ -2,6 +2,9 @@
 document.addEventListener('DOMContentLoaded', async ()=>{
   setActiveNav('navDashboard');
 
+  // small flag to avoid double-rendering when we perform local settings updates
+  let suppressSettingsEvent = false;
+
   const freqSelect = document.getElementById('freqDashboard');
   // initialize value from DB
   const f = await getSetting('frequency') || 'month';
@@ -20,6 +23,9 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   // react when settings change (from this tab or others)
   window.addEventListener('settingsChanged', (ev) => {
     try {
+      // if we're currently doing an intentional local settings update, skip this event
+      if (suppressSettingsEvent) return;
+
       const detail = ev?.detail || {};
       const key = detail.key;
       // only re-render for keys that affect this screen
