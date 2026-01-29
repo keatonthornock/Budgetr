@@ -50,7 +50,13 @@ html,body{
 }
 
 /* Main content area */
-.main{flex:1;overflow:auto;padding:8px 12px}
+.main{
+  flex: 1;
+  overflow: auto;
+  padding: 8px 12px;
+  /* space for bottom nav + safe area */
+  padding-bottom: calc(72px + env(safe-area-inset-bottom));
+}
 .content{display:flex;flex-direction:column;gap:12px;padding-bottom:12px}
 
 /* Cards */
@@ -82,6 +88,14 @@ html,body{
 .exp-category{font-size:13px;color:var(--muted)}
 .priority{font-size:13px;color:var(--muted);text-align:center}
 
+/* ensure list has comfortable space at the bottom so items are not obscured by the nav */
+.exp-list::after {
+  content: "";
+  display: block;
+  height: calc(84px + env(safe-area-inset-bottom)); /* extra scroll space past the last item */
+  width: 1px;
+}
+
 .add-screen.hidden { display: none; }
 
 /* Buttons */
@@ -93,19 +107,37 @@ html,body{
 /* Bottom nav - safe area aware */
 .bottom-nav{
   position:fixed;
-  left:12px;
-  right:12px;
-  bottom:calc(12px + env(safe-area-inset-bottom));
-  height:60px;
-  background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
-  border-radius:30px;
+  left:0;
+  right:0;
+  bottom:0; /* sits at bottom, safe-area handled by main padding */
+  height:56px;
+  background: rgba(255,255,255,0.08); /* frosted, readable but not opaque */
+  backdrop-filter: blur(8px) saturate(110%);
+  -webkit-backdrop-filter: blur(8px) saturate(110%);
+  border-top: 1px solid rgba(255,255,255,0.06);
+  border-radius: 0; /* flat bar */
   display:flex;
   align-items:center;
   justify-content:space-around;
-  padding:8px 18px;
-  box-shadow:0 10px 30px rgba(2,6,23,0.7);
+  padding:8px 6px;
+  box-shadow: 0 -6px 18px rgba(2,6,23,0.6);
+  z-index: 1100;
 }
-.nav-btn{background:transparent;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;padding:6px;min-width:80px;border-radius:12px;text-decoration:none}
+.nav-btn{
+  flex: 1;                 /* evenly distribute buttons */
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:4px;
+  color:var(--muted);
+  font-size:12px;
+  padding:6px 4px;
+  min-width:0;
+  text-decoration:none;
+  background:transparent;
+  border-radius:0;
+}
 .nav-btn.active{color:var(--accent)}
 
 /* Misc */
@@ -117,4 +149,5 @@ html,body{
   .main{padding-left:20px;padding-right:20px}
   .content{max-width:700px;margin:0 auto}
 }
+
 
