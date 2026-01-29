@@ -1,4 +1,4 @@
-// expenditures.js — robust version
+// expenditures.js — robust version (replace existing file)
 document.addEventListener('DOMContentLoaded', async () => {
   // --- HARD GATE: wait for auth + supabase sync before rendering ---
   const { data: { session } } = await supabaseClient.auth.getSession();
@@ -7,11 +7,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
-  let renderQueued = false;
-  
   // Wait for server → Dexie sync to fully complete
   await initSupabaseSync();
-  
+
   try {
     if (typeof setActiveNav === 'function') setActiveNav('navExpend');
 
@@ -35,21 +33,55 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Rendering guard and delegation guard (prevents duplicated DOM nodes / handlers)
     let _expendituresRenderToken = 0;
     let _expListDelegateAttached = false;
+    let renderQueued = false;
 
+    // --- Modal open/close logic (mobile-friendly) ---
+    const bodyEl = document.body;
 
-    // Show/hide add screen
-    showAddBtn.addEventListener('click', () => {
-      console.log('Add button clicked');
+    function openAddModal() {
       addScreen.classList.remove('hidden');
-      // If the card is modal-like, scrollIntoView is optional
-      try { addScreen.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch(e){/* ignore */ }
-    });
-    cancelAdd.addEventListener('click', () => {
-      addForm.reset();
-      addScreen.classList.add('hidden');
+      addScreen.classList.add('open', 'modal-visible');
+      addScreen.setAttribute('aria-hidden', 'false');
+      bodyEl.classList.add('body-modal-open');
+      document.querySelector('.bottom-nav')?.classList.add('hidden');
+      try { document.getElementById('fDesc')?.focus(); } catch(e){/* ignore */ }
+    }
+
+    function closeAddModal() {
+      addScreen.classList.remove('open', 'modal-visible');
+      addScreen.setAttribute('aria-hidden', 'true');
+      bodyEl.classList.remove('body-modal-open');
+      document.querySelector('.bottom-nav')?.classList.remove('hidden');
+      setTimeout(()=>{ if (!addScreen.classList.contains('open')) addScreen.classList.add('hidden'); }, 350);
+    }
+
+    // Show/hide add screen (open modal)
+    showAddBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      openAddModal();
     });
 
-    // Frequency init + listeners (unchanged)
+    cancelAdd.addEventListener('click', (e) => {
+      e.preventDefault();
+      addForm.reset();
+      closeAddModal();
+    });
+
+    // close modal when tapping outside (overlay)
+    addScreen.addEventListener('click', (e) => {
+      if (e.target === addScreen) {
+        closeAddModal();
+      }
+    });
+
+    // close modal on Escape key
+    window.addEventListener('keydown', (e)=>{
+      if (e.key === 'Escape' && addScreen.classList.contains('open')) {
+        closeAddModal();
+      }
+    });
+
+    // Frequency init + listeners
     const freqSelect = document.getElementById('freqExpend');
     const f = await getSetting('frequency') || 'month';
     if (freqSelect) freqSelect.value = f;
@@ -62,29 +94,21 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // SUBMIT handler — robust, prevents reload, tolerant parsing
     addForm.addEventListener('submit', async (e) => {
-      // Prevent default immediately
       e.preventDefault();
       e.stopPropagation?.();
 
-      console.log('Submit handler fired');
+      const saveBtn = addForm.querySelector('button[type="submit"]');
 
-      // e.submitter gives the clicked button (supported in modern browsers)
-      const saveBtn = (e && e.submitter) || addForm.querySelector('button[type="submit"]');
-
-      // Read + normalize inputs
       const desc = (document.getElementById('fDesc')?.value || '').trim();
-      const amountRaw = (document.getElementById('fAmount')?.value || '').trim();
-      // Normalize: accept commas or dots; strip currency / spaces
+      const amountRaw = (document.getElementById('fAmount')?.value || '').toString().trim();
       const amountNormalized = amountRaw.replace(/\s/g, '').replace(/[$€£]/g, '').replace(/,/g, '.').replace(/[^0-9.\-]/g,'');
       const amount = parseFloat(amountNormalized);
       const category = (document.getElementById('fCategory')?.value || '').trim() || 'Uncategorized';
       const priority = parseInt(document.getElementById('fPriority')?.value || 99, 10);
 
-      // Validation
       if (!desc) { alert('Please add a description.'); return; }
       if (Number.isNaN(amount) || amount <= 0) { alert('Please enter a valid amount greater than 0.'); return; }
 
-      // Prepare payload (no date field supplied by user)
       const payload = {
         description: desc,
         amount: amount,
@@ -94,7 +118,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         created_at: new Date().toISOString()
       };
 
-      // UI feedback: disable Save
       if (saveBtn) {
         saveBtn.disabled = true;
         const prevText = saveBtn.textContent;
@@ -102,17 +125,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         try {
           await addExpenditure(payload); // wrapper in common.js: server then fallback
-          console.log('Expense saved (attempted server + fallback).', payload);
         } catch (err) {
           console.error('Add failed (caught in submit):', err);
           alert('Save failed (see console). Falling back to local storage.');
         } finally {
-          // restore button state
           saveBtn.disabled = false;
           saveBtn.textContent = prevText || 'Save';
         }
       } else {
-        // If no saveBtn found, still attempt to save
         try {
           await addExpenditure(payload);
         } catch (err) {
@@ -123,26 +143,22 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       // tidy up UI and refresh
       addForm.reset();
-      addScreen.classList.add('hidden');
+      closeAddModal();
       renderExpenditures();
     });
 
-    // render function (unchanged behavior)
+    // render function (idempotent + safe)
     async function renderExpenditures(){
       try {
-        // render token to ignore stale renders
         const myToken = ++_expendituresRenderToken;
 
         const el = document.getElementById('expList');
         if (!el) return;
 
-        // clear immediately to avoid visible duplicates while waiting
         el.innerHTML = '';
 
-        // fetch items
         const items = await db.expenditures.orderBy('priority').toArray();
 
-        // if another render started, abort this one
         if (myToken !== _expendituresRenderToken) return;
 
         if (!items || items.length === 0) {
@@ -154,7 +170,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (myToken !== _expendituresRenderToken) return;
         const m = multiplierFor(freq);
 
-        // build fragment
         const frag = document.createDocumentFragment();
         for (const it of items) {
           const row = document.createElement('div');
@@ -175,10 +190,8 @@ document.addEventListener('DOMContentLoaded', async () => {
           frag.appendChild(row);
         }
 
-        // atomic replace
         el.replaceChildren(frag);
 
-        // attach delegated delete handler once
         if (!_expListDelegateAttached) {
           _expListDelegateAttached = true;
           el.addEventListener('click', async (e) => {
@@ -193,7 +206,6 @@ document.addEventListener('DOMContentLoaded', async () => {
               console.error('Delete failed, deleting locally', err);
               await db.expenditures.delete(id);
             }
-            // fresh render
             renderExpenditures();
           });
         }
@@ -203,8 +215,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     }
 
-
-    // DB change hooks
+    // DB change hooks (debounced)
     if (!window._expendituresUpdatedListenerAttached) {
       window._expendituresUpdatedListenerAttached = true;
       window.addEventListener('expendituresUpdated', () => {
@@ -215,6 +226,36 @@ document.addEventListener('DOMContentLoaded', async () => {
           renderExpenditures();
         });
       });
+    }
+
+    // --- bottom-nav hide on scroll (show on scroll up) ---
+    const mainEl = document.querySelector('.main');
+    const bottomNav = document.querySelector('.bottom-nav');
+    let lastScrollTop = mainEl ? mainEl.scrollTop : 0;
+    let scrollTicking = false;
+
+    function handleScroll() {
+      if (!mainEl || !bottomNav) return;
+      const st = mainEl.scrollTop;
+      const diff = st - lastScrollTop;
+      lastScrollTop = st;
+      if (Math.abs(diff) < 8) return;
+      if (diff > 0) {
+        bottomNav.classList.add('hidden');
+      } else {
+        bottomNav.classList.remove('hidden');
+      }
+    }
+
+    if (mainEl) {
+      mainEl.addEventListener('scroll', (e) => {
+        if (scrollTicking) return;
+        scrollTicking = true;
+        requestAnimationFrame(() => {
+          handleScroll();
+          scrollTicking = false;
+        });
+      }, { passive: true });
     }
 
     // initial render
