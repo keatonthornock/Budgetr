@@ -79,6 +79,28 @@ html,body{
 .progress{height:8px;background:rgba(255,255,255,0.04);border-radius:10px;overflow:hidden;margin-top:6px}
 .progress-inner{height:100%;border-radius:10px;background:linear-gradient(90deg,#1e90ff,#3ddc84)}
 
+/* Make the name+progress a consistent container so the progress bars are uniform */
+.cat-left > div {
+  width: 160px;        /* uniform bar length */
+  min-width: 0;        /* allow text truncation */
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Prevent category names from stretching the bar width */
+.cat-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* Ensure progress bars always fill the fixed container */
+.progress {
+  width: 100%;
+}
+
 /* Expenditures table/list */
 .table-header{display:grid;grid-template-columns:2fr 1fr 0.8fr 1fr;gap:8px;padding:10px 6px;color:var(--muted);font-size:13px}
 .exp-list{display:flex;flex-direction:column;gap:8px;margin-top:8px}
@@ -170,5 +192,6 @@ html,body{
   .main{padding-left:20px;padding-right:20px}
   .content{max-width:700px;margin:0 auto}
 }
+
 
 
