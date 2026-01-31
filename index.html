@@ -48,42 +48,42 @@
     <main class="main">
       <!-- CENTERED TITLE + settings button on right -->
       <header class="topbar">
+        <!-- view button on left (absolute positioned) -->
+        <button id="viewToggle" class="icon-btn view-btn" aria-haspopup="true" aria-expanded="false" title="Change view">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M3 5h18v2H3zM3 11h18v2H3zM3 17h18v2H3z" fill="currentColor"/>
+          </svg>
+        </button>
+      
+        <!-- centered title (keeps your existing centered styling) -->
         <div class="title">Dashboard</div>
-
+      
+        <!-- rightside controls (settings remains here) -->
         <div class="right">
-          <!-- view icon (replaces visible select). keeps the hidden select for compatibility -->
-          <button id="viewToggle" class="icon-btn view-btn" aria-haspopup="true" aria-expanded="false" title="Change view">
-            <!-- simple "view/list" icon -->
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-              <path d="M3 5h18v2H3zM3 11h18v2H3zM3 17h18v2H3z" fill="currentColor"/>
-            </svg>
-          </button>
-          
-          <!-- small popup menu that appears when the icon is tapped -->
-          <div id="viewMenu" class="view-menu" role="menu" aria-hidden="true">
-            <button class="view-item" data-value="month" role="menuitem">Month</button>
-            <button class="view-item" data-value="year" role="menuitem">Year</button>
-            <button class="view-item" data-value="biweekly" role="menuitem">Every Other Week</button>
-            <button class="view-item" data-value="weekly" role="menuitem">Weekly</button>
-          </div>
-          
-          <!-- keep a hidden select (so existing code referencing #freqDashboard keeps working) -->
+          <!-- hidden select kept for JS compatibility -->
           <select id="freqDashboard" hidden aria-hidden="true">
             <option value="month">Month</option>
             <option value="year">Year</option>
             <option value="biweekly">Every Other Week</option>
             <option value="weekly">Weekly</option>
           </select>
-
+      
           <!-- settings button (keeps id openSettings so your JS still works) -->
           <button id="openSettings" class="icon-btn" aria-label="Settings">
-            <!-- three vertical dots icon -->
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
               <circle cx="12" cy="5" r="1.6" fill="currentColor"/>
               <circle cx="12" cy="12" r="1.6" fill="currentColor"/>
               <circle cx="12" cy="19" r="1.6" fill="currentColor"/>
             </svg>
           </button>
+        </div>
+      
+        <!-- popup menu for the view button (keeps id/view-item classes used by JS) -->
+        <div id="viewMenu" class="view-menu" role="menu" aria-hidden="true">
+          <button class="view-item" data-value="month" role="menuitem">Month</button>
+          <button class="view-item" data-value="year" role="menuitem">Year</button>
+          <button class="view-item" data-value="biweekly" role="menuitem">Every Other Week</button>
+          <button class="view-item" data-value="weekly" role="menuitem">Weekly</button>
         </div>
       </header>
 
@@ -151,5 +151,6 @@
   <script src="dashboard.js" defer></script>
 </body>
 </html>
+
 
 
