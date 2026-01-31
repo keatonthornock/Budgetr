@@ -1,35 +1,54 @@
 <!doctype html>
 <html lang="en">
-  
-<header class="topbar">
-  <div class="title">Dashboard</div>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Budgetr — Dashboard</title>
 
-  <div class="right">
-    <select id="freqDashboard" class="freq-select" aria-label="Frequency">
-      <option value="month">Month</option>
-      <option value="year">Year</option>
-      <option value="biweekly">Every Other Week</option>
-      <option value="weekly">Weekly</option>
-    </select>
+  <!-- Optional: Poppins font (place before your stylesheet so CSS can use it) -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
 
-    <!-- settings button (keeps id openSettings so your JS still works) -->
-    <button id="openSettings" class="icon-btn" aria-label="Settings">
-      <!-- three vertical dots icon -->
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <circle cx="12" cy="5" r="1.6" fill="currentColor"/>
-        <circle cx="12" cy="12" r="1.6" fill="currentColor"/>
-        <circle cx="12" cy="19" r="1.6" fill="currentColor"/>
-      </svg>
-    </button>
-  </div>
-</header>
+  <!-- your app styles -->
+  <link rel="stylesheet" href="styles.css">
 
+  <!-- libs (must load before common.js) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="https://unpkg.com/dexie@3.2.2/dist/dexie.min.js"></script>
+
+  <!-- common (init supabase client + Dexie + helpers) - load synchronously so auth-check can run immediately -->
+  <script src="common.js"></script>
+
+  <!-- AUTH CHECK: redirect to login if not signed in, otherwise init sync -->
+  <script>
+    (async function(){
+      try {
+        // Wait for Supabase session to be restored
+        const { data: { session } } = await supabaseClient.auth.getSession();
+
+        if(!session || !session.user) {
+          // no valid session: redirect to login
+          location.href = 'login.html';
+          return;
+        }
+    
+        // initialize sync
+        await initSupabaseSync();
+    
+      } catch (err) {
+        console.error('Auth/init check failed', err);
+        location.href = 'login.html';
+      }
+    })();
+  </script>
+</head>
 
 <body>
   <div class="app">
     <main class="main">
+      <!-- CENTERED TITLE + settings button on right -->
       <header class="topbar">
         <div class="title">Dashboard</div>
+
         <div class="right">
           <select id="freqDashboard" class="freq-select" aria-label="Frequency">
             <option value="month">Month</option>
@@ -37,7 +56,16 @@
             <option value="biweekly">Every Other Week</option>
             <option value="weekly">Weekly</option>
           </select>
-          <button id="openSettings" class="icon-btn">⚙️</button>
+
+          <!-- settings button (keeps id openSettings so your JS still works) -->
+          <button id="openSettings" class="icon-btn" aria-label="Settings">
+            <!-- three vertical dots icon -->
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <circle cx="12" cy="5" r="1.6" fill="currentColor"/>
+              <circle cx="12" cy="12" r="1.6" fill="currentColor"/>
+              <circle cx="12" cy="19" r="1.6" fill="currentColor"/>
+            </svg>
+          </button>
         </div>
       </header>
 
@@ -99,20 +127,9 @@
         <div class="nav-label">Goals</div>
       </a>
     </nav>
-
   </div>
 
   <!-- page-specific code (deferred) -->
   <script src="dashboard.js" defer></script>
-  
 </body>
 </html>
-
-
-
-
-
-
-
-
-
