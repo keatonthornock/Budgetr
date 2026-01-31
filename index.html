@@ -48,28 +48,19 @@
     <main class="main">
       <!-- CENTERED TITLE + settings button on right -->
       <header class="topbar">
-        <!-- view button on the LEFT -->
+
+        <!-- LEFT: view button -->
         <button id="viewToggle" class="icon-btn view-btn" aria-label="Change view">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
             <path d="M3 5h18v2H3zM3 11h18v2H3zM3 17h18v2H3z" fill="currentColor"/>
           </svg>
         </button>
       
-        <!-- centered title -->
+        <!-- CENTER: title -->
         <div class="title">Dashboard</div>
       
-        <!-- RIGHT SIDE ACTIONS -->
+        <!-- RIGHT: settings -->
         <div class="right">
-      
-          <!-- hidden select (JS still uses this) -->
-          <select id="freqDashboard" hidden>
-            <option value="month">Month</option>
-            <option value="year">Year</option>
-            <option value="biweekly">Every Other Week</option>
-            <option value="weekly">Weekly</option>
-          </select>
-      
-          <!-- settings button (TOP RIGHT) -->
           <button id="openSettings" class="icon-btn" aria-label="Settings">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
               <circle cx="12" cy="5" r="1.6" fill="currentColor"/>
@@ -77,15 +68,6 @@
               <circle cx="12" cy="19" r="1.6" fill="currentColor"/>
             </svg>
           </button>
-      
-        </div>
-      
-        <!-- view menu -->
-        <div id="viewMenu" class="view-menu">
-          <button class="view-item" data-value="month">Month</button>
-          <button class="view-item" data-value="year">Year</button>
-          <button class="view-item" data-value="biweekly">Every Other Week</button>
-          <button class="view-item" data-value="weekly">Weekly</button>
         </div>
       
       </header>
@@ -154,6 +136,7 @@
   <script src="dashboard.js" defer></script>
 </body>
 </html>
+
 
 
 
