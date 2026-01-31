@@ -1,15 +1,18 @@
 :root{
-  --bg:#0b0f16;
-  --card:#0f1724;
-  --muted:#94a3b8;
-  --accent:#3ddc84;
-  --danger:#ff758f;
-  --soft:#111827;
+  /* main palette: dark grey base, slightly lighter cards, soft muted text, lighter green accent */
+  --bg: #0b1114;              /* page background (dark grey) */
+  --card: #11161a;            /* card background (slightly lighter) */
+  --card-ll: #12171b;        /* card lighter variant */
+  --muted: #9aa6ad;          /* muted text inside cards */
+  --accent: #7be3a9;         /* lighter green accent (used sparingly) */
+  --danger: #ff758f;
+  --soft: #0f1416;
   --glass: rgba(255,255,255,0.03);
   --radius:14px;
   --padding:14px;
-  --font-sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  --font-sans: 'Poppins', Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
 }
+
 *{box-sizing:border-box}
 html,body{
   height:100%;
@@ -30,15 +33,41 @@ html,body{
   background:var(--bg);
 }
 
-/* Topbar */
+/* Topbar: title centered, actionable icons on right */
 .topbar{
   display:flex;
   align-items:center;
-  justify-content:space-between;
+  justify-content:flex-end; /* right side controls sit here */
   padding:12px 16px;
+  position:relative;
+  gap:8px;
+  z-index: 1200;
 }
-.title{font-weight:700;font-size:18px}
+.title{
+  position:absolute;
+  left:50%;
+  transform:translateX(-50%);
+  font-weight:700;
+  font-size:18px;
+  color: #e6eef6;
+  text-align:center;
+  pointer-events:none; /* clicks pass through to controls */
+}
 .right{display:flex;align-items:center;gap:8px}
+
+/* small icon button (settings, etc) */
+.icon-btn{
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  padding:8px;
+  border-radius:10px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+}
+.icon-btn svg { display:block; }
 
 /* Frequency select */
 .freq-select{
@@ -47,6 +76,7 @@ html,body{
   border-radius:10px;
   padding:6px 8px;
   border:1px solid rgba(255,255,255,0.03);
+  color: var(--muted);
 }
 
 /* Main content area */
@@ -58,26 +88,52 @@ html,body{
 }
 .content{display:flex;flex-direction:column;gap:12px;padding-bottom:12px}
 
-/* Cards */
-.card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:var(--radius);padding:14px;box-shadow:0 8px 18px rgba(2,6,23,0.6)}
+/* Cards (lighter grey boxes with subtle edge) */
+.card{
+  background: linear-gradient(180deg, rgba(255,255,255,0.015), rgba(255,255,255,0.01));
+  background-color: var(--card);
+  border-radius:var(--radius);
+  padding:14px;
+  box-shadow: 0 6px 18px rgba(2,6,23,0.55);
+  color: #e6eef6;
+  border: 1px solid rgba(255,255,255,0.02);
+}
 .total-card{display:flex;align-items:center;justify-content:space-between;padding:18px 18px;border-radius:18px}
 .card-label{font-size:14px;color:var(--muted)}
 .total-amount{font-size:36px;font-weight:800;color:var(--danger);margin-top:6px}
 
+/* small cards */
 .mini-cards{display:flex;gap:10px}
-.mini{flex:1;padding:12px}
+.mini{flex:1;padding:12px;background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005)); border-radius:12px}
 .mini-label{font-size:13px;color:var(--muted)}
 .mini-amount{font-size:22px;font-weight:700}
 .mini-amount.green{color:var(--accent)}
 
+/* Category list styles */
 .category-list{display:flex;flex-direction:column;gap:10px;margin-top:8px}
 .cat-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
-.cat-left{display:flex;align-items:center;gap:10px}
+.cat-left{display:flex;align-items:center;gap:12px}
 .cat-dot{width:12px;height:12px;border-radius:50%}
-.cat-name{font-weight:600}
-.cat-amount{font-weight:700}
-.progress{height:8px;background:rgba(255,255,255,0.04);border-radius:10px;overflow:hidden;margin-top:6px}
-.progress-inner{height:100%;border-radius:10px;background:linear-gradient(90deg,#1e90ff,#3ddc84)}
+
+/* Remove the dot marker when present (you said you want the dot gone) */
+.cat-dot{ display: none; }
+
+.cat-name{font-weight:600;color:#e6eef6}
+.cat-amount{font-weight:700;color:#e6eef6}
+.progress{
+  height:8px;
+  background: rgba(255,255,255,0.03);
+  border-radius:10px;
+  overflow:hidden;
+  margin-top:6px;
+  width: 160px;            /* fixed width for all bars */
+  min-width: 120px;
+}
+.progress-inner{
+  height:100%;
+  border-radius:10px;
+  background: linear-gradient(90deg, #2fc58f, var(--accent)); /* green-ish gradient */
+}
 
 /* Make the name+progress a consistent container so the progress bars are uniform */
 .cat-left > div {
@@ -96,11 +152,6 @@ html,body{
   max-width: 100%;
 }
 
-/* Ensure progress bars always fill the fixed container */
-.progress {
-  width: 100%;
-}
-
 /* Expenditures table/list */
 .table-header{display:grid;grid-template-columns:2fr 1fr 0.8fr 1fr;gap:8px;padding:10px 6px;color:var(--muted);font-size:13px}
 .exp-list{display:flex;flex-direction:column;gap:8px;margin-top:8px}
@@ -117,23 +168,24 @@ html,body{
 .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.04)}
 .btn.small{padding:6px 8px;font-size:14px;border-radius:8px}
 
-/* Bottom nav - safe area aware */
+/* Bottom nav - flat bar style (grey scheme), highlight bubble becomes almost-white bubble */
 .bottom-nav{
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
   height: 64px;
-  background: var(--accent);             /* solid accent color */
+  background: var(--card);             /* use same card-grey for nav */
   display: flex;
   align-items: center;
   justify-content: space-around;
-  padding: 8px 8px;
+  padding: 8px 6px;
   box-shadow: 0 -6px 18px rgba(2,6,23,0.45);
   z-index: 1100;
   border-radius: 0;
-  border-top: 1px solid rgba(0,0,0,0.08);
+  border-top: 1px solid rgba(255,255,255,0.02);
 }
+
 /* nav buttons: evenly spaced, icon + label stacked */
 .nav-btn{
   flex: 1;
@@ -141,46 +193,47 @@ html,body{
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  color: rgba(255,255,255,0.95); /* default icon + label color (white on accent) */
+  gap: 6px;
+  color: var(--muted); /* icons & labels default muted grey */
   font-size: 12px;
   padding: 6px 4px;
   min-width: 0;
   text-decoration: none;
 }
 
-/* the circular white pill that appears behind the active icon */
-.nav-btn .nav-icon-wrapper{
+/* icon wrapper */
+.nav-icon-wrapper{
   width: 36px;
   height: 36px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: transparent;       /* default transparent so icon shows white directly */
-  color: rgba(255,255,255,0.95); /* icon color (white) */
+  background: transparent;
+  color: var(--muted); /* icon color */
   transition: all 220ms ease;
   box-shadow: none;
 }
 
 /* label text under icon */
-.nav-btn .nav-label{
+.nav-label{
   font-size: 11px;
   line-height: 1;
-  color: rgba(255,255,255,0.95);
+  color: var(--muted);
 }
 
 /* Active state:
-   - make the circular pill white and color the SVG icon with --accent (green)
-   - keep label white or slightly brighter
+   - show a light bubble behind active icon (almost white)
+   - icon becomes grey (not green)
+   - label stays muted but slightly lighter
 */
 .nav-btn.active .nav-icon-wrapper{
-  background: white;
-  color: var(--accent);         /* icon color becomes accent (green) */
-  box-shadow: 0 6px 18px rgba(2,6,23,0.12);
+  background: rgba(255,255,255,0.95);  /* bright bubble */
+  color: #6b7280;                       /* grey icon color */
+  box-shadow: 0 6px 18px rgba(2,6,23,0.08);
 }
 .nav-btn.active .nav-label{
-  color: rgba(255,255,255,0.98);
+  color: #bfc8cc;
 }
 
 /* Misc */
@@ -192,6 +245,3 @@ html,body{
   .main{padding-left:20px;padding-right:20px}
   .content{max-width:700px;margin:0 auto}
 }
-
-
-
