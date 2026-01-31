@@ -48,43 +48,46 @@
     <main class="main">
       <!-- CENTERED TITLE + settings button on right -->
       <header class="topbar">
-        <!-- view button on left (absolute positioned) -->
-        <button id="viewToggle" class="icon-btn view-btn" aria-haspopup="true" aria-expanded="false" title="Change view">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <!-- view button on the LEFT -->
+        <button id="viewToggle" class="icon-btn view-btn" aria-label="Change view">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M3 5h18v2H3zM3 11h18v2H3zM3 17h18v2H3z" fill="currentColor"/>
           </svg>
         </button>
       
-        <!-- centered title (keeps your existing centered styling) -->
+        <!-- centered title -->
         <div class="title">Dashboard</div>
       
-        <!-- rightside controls (settings remains here) -->
+        <!-- RIGHT SIDE ACTIONS -->
         <div class="right">
-          <!-- hidden select kept for JS compatibility -->
-          <select id="freqDashboard" hidden aria-hidden="true">
+      
+          <!-- hidden select (JS still uses this) -->
+          <select id="freqDashboard" hidden>
             <option value="month">Month</option>
             <option value="year">Year</option>
             <option value="biweekly">Every Other Week</option>
             <option value="weekly">Weekly</option>
           </select>
       
-          <!-- settings button (keeps id openSettings so your JS still works) -->
+          <!-- settings button (TOP RIGHT) -->
           <button id="openSettings" class="icon-btn" aria-label="Settings">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
               <circle cx="12" cy="5" r="1.6" fill="currentColor"/>
               <circle cx="12" cy="12" r="1.6" fill="currentColor"/>
               <circle cx="12" cy="19" r="1.6" fill="currentColor"/>
             </svg>
           </button>
+      
         </div>
       
-        <!-- popup menu for the view button (keeps id/view-item classes used by JS) -->
-        <div id="viewMenu" class="view-menu" role="menu" aria-hidden="true">
-          <button class="view-item" data-value="month" role="menuitem">Month</button>
-          <button class="view-item" data-value="year" role="menuitem">Year</button>
-          <button class="view-item" data-value="biweekly" role="menuitem">Every Other Week</button>
-          <button class="view-item" data-value="weekly" role="menuitem">Weekly</button>
+        <!-- view menu -->
+        <div id="viewMenu" class="view-menu">
+          <button class="view-item" data-value="month">Month</button>
+          <button class="view-item" data-value="year">Year</button>
+          <button class="view-item" data-value="biweekly">Every Other Week</button>
+          <button class="view-item" data-value="weekly">Weekly</button>
         </div>
+      
       </header>
 
       <div class="content">
@@ -151,6 +154,7 @@
   <script src="dashboard.js" defer></script>
 </body>
 </html>
+
 
 
 
