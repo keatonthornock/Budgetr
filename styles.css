@@ -102,8 +102,7 @@ html,body{
   right: 0;
   bottom: 0;
   height: 64px;
-  /* blue -> green gradient matching your category marker */
-  background: linear-gradient(90deg, #1e90ff 0%, #3ddc84 100%);
+  background: var(--accent);             /* solid accent color */
   display: flex;
   align-items: center;
   justify-content: space-around;
@@ -113,7 +112,6 @@ html,body{
   border-radius: 0;
   border-top: 1px solid rgba(0,0,0,0.08);
 }
-
 /* nav buttons: evenly spaced, icon + label stacked */
 .nav-btn{
   flex: 1;
@@ -172,7 +170,5 @@ html,body{
   .main{padding-left:20px;padding-right:20px}
   .content{max-width:700px;margin:0 auto}
 }
-
-
 
 
