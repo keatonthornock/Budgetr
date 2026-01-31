@@ -5,15 +5,76 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   // small flag to avoid double-rendering when we perform local settings updates
   let suppressSettingsEvent = false;
 
-  const freqSelect = document.getElementById('freqDashboard');
-  // initialize value from DB
-  const f = await getSetting('frequency') || 'month';
-  freqSelect.value = f;
+    // --- view icon + popup menu that controls frequency (replaces visible select) ---
+  const viewToggle = document.getElementById('viewToggle');
+  const viewMenu = document.getElementById('viewMenu');
+  const freqSelect = document.getElementById('freqDashboard'); // hidden select kept for compatibility
 
-  // when user changes, update DB and notify
-  freqSelect.addEventListener('change', async (e)=>{
-    await setFrequencyAndNotify(e.target.value);
-  });
+  // safety: if DOM elements are missing, bail back to original behavior
+  if (!freqSelect) {
+    console.warn('freqDashboard not found — frequency UI will not be interactive.');
+  }
+
+  // initial value (from DB)
+  const initialFreq = await getSetting('frequency') || 'month';
+  if (freqSelect) freqSelect.value = initialFreq;
+
+  // helper: mark the active menu item
+  function setActiveViewItem(val) {
+    viewMenu?.querySelectorAll('.view-item').forEach(b => {
+      b.classList.toggle('active', b.dataset.value === val);
+    });
+  }
+  setActiveViewItem(initialFreq);
+
+  // toggle popup (guard if button/menu missing)
+  if (viewToggle && viewMenu) {
+    viewToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const opened = viewMenu.classList.toggle('open');
+      viewToggle.setAttribute('aria-expanded', opened ? 'true' : 'false');
+      if (opened) {
+        const active = viewMenu.querySelector('.view-item.active') || viewMenu.querySelector('.view-item');
+        active && active.focus();
+      }
+    });
+
+    // select item from popup
+    viewMenu.querySelectorAll('.view-item').forEach(btn => {
+      btn.addEventListener('click', async (ev) => {
+        const val = btn.dataset.value;
+        if (!val) return;
+        if (freqSelect) freqSelect.value = val;
+        await setFrequencyAndNotify(val);   // existing helper — updates DB & fires frequencyChange
+        setActiveViewItem(val);
+        viewMenu.classList.remove('open');
+        viewToggle.setAttribute('aria-expanded', 'false');
+      });
+    });
+
+    // close menu on outside click or Escape
+    document.addEventListener('click', () => {
+      if (viewMenu.classList.contains('open')) {
+        viewMenu.classList.remove('open');
+        viewToggle.setAttribute('aria-expanded','false');
+      }
+    });
+    viewMenu.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        viewMenu.classList.remove('open');
+        viewToggle.setAttribute('aria-expanded','false');
+        viewToggle.focus();
+      }
+    });
+  } else {
+    // fallback: still keep the hidden select's change listener so code paths that expect it work
+    if (freqSelect) {
+      freqSelect.addEventListener('change', async (e) => {
+        await setFrequencyAndNotify(e.target.value);
+      });
+    }
+  }
+
 
   // react when other pages/tabs change frequency
   window.addEventListener('frequencyChange', () => {
