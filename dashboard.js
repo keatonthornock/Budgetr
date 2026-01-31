@@ -121,7 +121,6 @@ document.addEventListener('DOMContentLoaded', async ()=>{
         row.className = 'cat-row';
         row.innerHTML = `
           <div class="cat-left">
-            <div class="cat-dot" style="background:linear-gradient(90deg,#1e90ff,#3ddc84)"></div>
             <div>
               <div class="cat-name">${escapeHtml(cat)}</div>
               <div class="progress"><div class="progress-inner" style="width:${pct}%"></div></div>
