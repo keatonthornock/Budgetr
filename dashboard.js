@@ -10,6 +10,21 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   const viewMenu = document.getElementById('viewMenu');
   const freqSelect = document.getElementById('freqDashboard'); // hidden select kept for compatibility
 
+  const viewLabel = document.getElementById('viewLabel');
+  function readableFreq(val){
+    return ({
+      month: 'Month',
+      year: 'Year',
+      biweekly: 'Every Other Week',
+      weekly: 'Weekly'
+    })[val] || String(val || '').replace(/^\w/, c=>c.toUpperCase());
+  }
+  
+  function setViewLabel(val){
+    if(!viewLabel) return;
+    viewLabel.textContent = readableFreq(val);
+  }
+
   // safety: if DOM elements are missing, bail back to original behavior
   if (!freqSelect) {
     console.warn('freqDashboard not found — frequency UI will not be interactive.');
