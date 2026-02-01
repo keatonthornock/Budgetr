@@ -2,6 +2,11 @@
 const SUPABASE_URL = 'https://srhmhrllhavckopoteui.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_toK5FMKwF-JeASs_9ifcAA_pOSszVCv';
 
+const SHARED_SETTING_KEYS = new Set([
+  'netMonthly',
+  'currentSavings'
+]);
+
 // Try to initialize Supabase client, but don't let a failure stop the file
 let supabaseClient = null;
 try {
@@ -47,6 +52,30 @@ initDbHooks();
  * Returns true on success, false on failure.
  */
 // Robust setSetting: save local, then update-or-insert on server (select -> update if found -> insert if not)
+
+async function getMyHouseholdId() {
+  if (!supabaseClient) return null;
+
+  const { data: { user } } = await supabaseClient.auth.getUser();
+  if (!user) return null;
+
+  const { data, error } = await supabaseClient
+    .from('household_members')
+    .select('household_id')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (error) {
+    console.error('getMyHouseholdId error', error);
+    return null;
+  }
+
+  return data?.household_id || null;
+}
+
+window.getMyHouseholdId = getMyHouseholdId;
+
+
 async function setSetting(key, value) {
   try {
     console.log('[setSetting] start', { key, value });
@@ -79,8 +108,21 @@ async function setSetting(key, value) {
     const { data: existing, error: selectErr } = await supabaseClient
       .from('user_settings')
       .select('id, value, updated_at')
-      .eq('user_id', user.id)
-      .eq('key', key)
+      const isShared = SHARED_SETTING_KEYS.has(key);
+      const householdId = isShared ? await getMyHouseholdId() : null;
+      
+      let query = supabaseClient
+        .from('user_settings')
+        .select('id')
+        .eq('key', key);
+      
+      if (isShared && householdId) {
+        query = query.eq('household_id', householdId);
+      } else {
+        query = query.eq('user_id', user.id);
+      }
+      
+      const { data: existing, error: selectErr } = await query.maybeSingle();
       .maybeSingle();
 
     if (selectErr) {
@@ -110,7 +152,12 @@ async function setSetting(key, value) {
     } else {
       // 4b) No row -> safe to insert
       console.log('[setSetting] no existing row, inserting new one');
-      const payload = { user_id: user.id, key, value };
+      const payload = {
+        key,
+        value,
+        user_id: isShared ? null : user.id,
+        household_id: isShared ? householdId : null
+      };
       const { data: ins, error: insErr } = await supabaseClient
         .from('user_settings')
         .insert(payload, { returning: 'representation' });
@@ -125,8 +172,7 @@ async function setSetting(key, value) {
           const { data: retry, error: retryErr } = await supabaseClient
             .from('user_settings')
             .update({ value })
-            .eq('user_id', user.id)
-            .eq('key', key)
+            .eq('id', existing.id)
             .select();
           console.log('[setSetting] retry update result', { retry, retryErr });
           if (retryErr) return false;
@@ -170,8 +216,21 @@ async function getSetting(key) {
         const { data, error } = await supabaseClient
           .from('user_settings')
           .select('value')
-          .eq('user_id', user.id)
-          .eq('key', key)
+          const isShared = SHARED_SETTING_KEYS.has(key);
+          const householdId = isShared ? await getMyHouseholdId() : null;
+          
+          let query = supabaseClient
+            .from('user_settings')
+            .select('value')
+            .eq('key', key);
+          
+          if (isShared && householdId) {
+            query = query.eq('household_id', householdId);
+          } else {
+            query = query.eq('user_id', user.id);
+          }
+          
+          const { data, error } = await query.maybeSingle();
           .maybeSingle();
 
         if (error) {
