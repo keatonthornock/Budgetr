@@ -27,25 +27,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const viewMenu = document.getElementById('viewMenu');
     const freqSelect = document.getElementById('freqExpend'); // hidden select for compatibility
 
-    const viewLabel = document.getElementById('viewLabel');
-    function readableFreq(val){
-      return ({
-        month: 'Month',
-        year: 'Year',
-        biweekly: 'Every Other Week',
-        weekly: 'Week'
-      })[val] || String(val || '').replace(/^\w/, c=>c.toUpperCase());
-    }
-    
-    function setViewLabel(val){
-      if(!viewLabel) return;
-      viewLabel.textContent = readableFreq(val);
-    }
-
-    setActiveViewItem(initialFreq);
-    // show the human-friendly label on load
-    setViewLabel(initialFreq);
-
     // Basic sanity
     if (!showAddBtn || !addScreen || !addForm || !cancelAdd) {
       console.error('Missing required elements:', {
@@ -164,14 +145,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     // hook each menu item
     viewMenu.querySelectorAll('.view-item').forEach(btn => {
       btn.addEventListener('click', async (ev) => {
+        ev.stopPropagation();
         const val = btn.dataset.value;
         if (!val) return;
-        if (freqSelect) freqSelect.value = val;
-        await setFrequencyAndNotify(val);   // existing helper — updates DB & fires frequencyChange
-        setActiveViewItem(val);
-        setViewLabel(val);                  // ← update the visible label
-        viewMenu.classList.remove('open');
-        viewToggle.setAttribute('aria-expanded', 'false');
+        try {
+          if (freqSelect) freqSelect.value = val;
+          // setFrequencyAndNotify is your existing helper
+          await setFrequencyAndNotify(val);
+        } catch (err) {
+          console.error('[viewToggle] error while setting frequency', err);
+        } finally {
+          setActiveViewItem(val);
+          closeMenu();
+        }
       });
     });
 
@@ -371,8 +357,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.addEventListener('frequencyChange', async () => {
       const val = await getSetting('frequency');
       if (freqSelect) freqSelect.value = val;
-      setViewLabel(val);   // keep the view-label in sync across tabs
-      renderAll();
       renderExpenditures();
     });
 
