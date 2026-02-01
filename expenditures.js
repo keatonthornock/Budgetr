@@ -27,6 +27,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     const viewMenu = document.getElementById('viewMenu');
     const freqSelect = document.getElementById('freqExpend'); // hidden select for compatibility
 
+    const viewLabel = document.getElementById('viewLabel');
+    function readableFreq(val){
+      return ({
+        month: 'Month',
+        year: 'Year',
+        biweekly: 'Every Other Week',
+        weekly: 'Week'
+      })[val] || String(val || '').replace(/^\w/, c=>c.toUpperCase());
+    }
+    
+    function setViewLabel(val){
+      if(!viewLabel) return;
+      viewLabel.textContent = readableFreq(val);
+    }
+
     // Basic sanity
     if (!showAddBtn || !addScreen || !addForm || !cancelAdd) {
       console.error('Missing required elements:', {
