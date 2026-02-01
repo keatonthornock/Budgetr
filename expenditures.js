@@ -1,4 +1,4 @@
-// expenditures.js — robust version
+// expenditures.js — robust + view-toggle
 document.addEventListener('DOMContentLoaded', async () => {
   // --- HARD GATE: wait for auth + supabase sync before rendering ---
   const { data: { session } } = await supabaseClient.auth.getSession();
@@ -8,11 +8,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   let renderQueued = false;
-  
+
   // Wait for server → Dexie sync to fully complete
   await initSupabaseSync();
-  
+
   try {
+    // set active nav for expenditures page
     if (typeof setActiveNav === 'function') setActiveNav('navExpend');
 
     // Elements
@@ -20,6 +21,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     const addScreen = document.getElementById('addScreen');
     const addForm = document.getElementById('addForm');
     const cancelAdd = document.getElementById('cancelAdd');
+
+    // View toggle / menu elements (left calendar popup)
+    const viewToggle = document.getElementById('viewToggle');
+    const viewMenu = document.getElementById('viewMenu');
+    const freqSelect = document.getElementById('freqExpend'); // hidden select for compatibility
 
     // Basic sanity
     if (!showAddBtn || !addScreen || !addForm || !cancelAdd) {
@@ -29,110 +35,171 @@ document.addEventListener('DOMContentLoaded', async () => {
         addForm: !!addForm,
         cancelAdd: !!cancelAdd
       });
-      return;
+      // don't return — the page can still render, but we log the error
     }
 
     // Rendering guard and delegation guard (prevents duplicated DOM nodes / handlers)
     let _expendituresRenderToken = 0;
     let _expListDelegateAttached = false;
 
+    // Show/hide add screen (keeps your previous behavior)
+    if (showAddBtn) {
+      showAddBtn.addEventListener('click', () => {
+        addScreen.classList.remove('hidden');
+        try { addScreen.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) { /* ignore */ }
+      });
+    }
+    if (cancelAdd) {
+      cancelAdd.addEventListener('click', () => {
+        addForm.reset();
+        addScreen.classList.add('hidden');
+      });
+    }
 
-    // Show/hide add screen
-    showAddBtn.addEventListener('click', () => {
-      console.log('Add button clicked');
-      addScreen.classList.remove('hidden');
-      // If the card is modal-like, scrollIntoView is optional
-      try { addScreen.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch(e){/* ignore */ }
-    });
-    cancelAdd.addEventListener('click', () => {
-      addForm.reset();
-      addScreen.classList.add('hidden');
-    });
+    // VIEW TOGGLE: popup menu handling (safe guards if elements missing)
+    (function wireViewToggle() {
+      // if freqSelect missing, we still let the view-menu set frequency via setFrequencyAndNotify
+      const initialFreq = awaitGetSettingSync();
 
-    // Frequency init + listeners (unchanged)
-    const freqSelect = document.getElementById('freqExpend');
-    const f = await getSetting('frequency') || 'month';
-    if (freqSelect) freqSelect.value = f;
-    freqSelect.addEventListener('change', async (e) => {
-      await setFrequencyAndNotify(e.target.value);
-    });
-    window.addEventListener('frequencyChange', () => {
-      getSetting('frequency').then(val => { if (freqSelect) freqSelect.value = val; renderExpenditures(); });
-    });
-
-    // SUBMIT handler — robust, prevents reload, tolerant parsing
-    addForm.addEventListener('submit', async (e) => {
-      // Prevent default immediately
-      e.preventDefault();
-      e.stopPropagation?.();
-
-      console.log('Submit handler fired');
-
-      // e.submitter gives the clicked button (supported in modern browsers)
-      const saveBtn = (e && e.submitter) || addForm.querySelector('button[type="submit"]');
-
-      // Read + normalize inputs
-      const desc = (document.getElementById('fDesc')?.value || '').trim();
-      const amountRaw = (document.getElementById('fAmount')?.value || '').trim();
-      // Normalize: accept commas or dots; strip currency / spaces
-      const amountNormalized = amountRaw.replace(/\s/g, '').replace(/[$€£]/g, '').replace(/,/g, '.').replace(/[^0-9.\-]/g,'');
-      const amount = parseFloat(amountNormalized);
-      const category = (document.getElementById('fCategory')?.value || '').trim() || 'Uncategorized';
-      const priority = parseInt(document.getElementById('fPriority')?.value || 99, 10);
-
-      // Validation
-      if (!desc) { alert('Please add a description.'); return; }
-      if (Number.isNaN(amount) || amount <= 0) { alert('Please enter a valid amount greater than 0.'); return; }
-
-      // Prepare payload (no date field supplied by user)
-      const payload = {
-        description: desc,
-        amount: amount,
-        category,
-        priority,
-        date: new Date().toISOString(),
-        created_at: new Date().toISOString()
-      };
-
-      // UI feedback: disable Save
-      if (saveBtn) {
-        saveBtn.disabled = true;
-        const prevText = saveBtn.textContent;
-        saveBtn.textContent = 'Saving...';
-
-        try {
-          await addExpenditure(payload); // wrapper in common.js: server then fallback
-          console.log('Expense saved (attempted server + fallback).', payload);
-        } catch (err) {
-          console.error('Add failed (caught in submit):', err);
-          alert('Save failed (see console). Falling back to local storage.');
-        } finally {
-          // restore button state
-          saveBtn.disabled = false;
-          saveBtn.textContent = prevText || 'Save';
-        }
-      } else {
-        // If no saveBtn found, still attempt to save
-        try {
-          await addExpenditure(payload);
-        } catch (err) {
-          console.error('Add failed (no saveBtn):', err);
-          alert('Save failed (see console).');
-        }
+      function awaitGetSettingSync() {
+        // can't use top-level await inside this helper easily — return a promise that resolves quickly
+        let p = getSetting('frequency').catch(() => 'month');
+        return p;
       }
 
-      // tidy up UI and refresh
-      addForm.reset();
-      addScreen.classList.add('hidden');
-      renderExpenditures();
-    });
+      // mark active menu item helper
+      function setActiveViewItem(val) {
+        viewMenu?.querySelectorAll('.view-item').forEach(b => {
+          b.classList.toggle('active', b.dataset.value === val);
+        });
+      }
 
-    // render function (unchanged behavior)
-    async function renderExpenditures(){
+      // open/close and selection wiring
+      if (viewToggle && viewMenu) {
+        // set initial active based on DB value
+        getSetting('frequency').then(v => setActiveViewItem(v || 'month'));
+
+        viewToggle.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const opened = viewMenu.classList.toggle('open');
+          viewToggle.setAttribute('aria-expanded', opened ? 'true' : 'false');
+          if (opened) {
+            const active = viewMenu.querySelector('.view-item.active') || viewMenu.querySelector('.view-item');
+            active && active.focus();
+          }
+        });
+
+        viewMenu.querySelectorAll('.view-item').forEach(btn => {
+          btn.addEventListener('click', async (ev) => {
+            const val = btn.dataset.value;
+            if (!val) return;
+            if (freqSelect) freqSelect.value = val;
+            await setFrequencyAndNotify(val);   // updates DB & fires frequencyChange
+            setActiveViewItem(val);
+            viewMenu.classList.remove('open');
+            viewToggle.setAttribute('aria-expanded', 'false');
+          });
+        });
+
+        // close menu on outside click or Escape
+        document.addEventListener('click', () => {
+          if (viewMenu.classList.contains('open')) {
+            viewMenu.classList.remove('open');
+            viewToggle.setAttribute('aria-expanded', 'false');
+          }
+        });
+        viewMenu.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape') {
+            viewMenu.classList.remove('open');
+            viewToggle.setAttribute('aria-expanded', 'false');
+            viewToggle.focus();
+          }
+        });
+      } else {
+        // fallback: if no view toggle/menu, attach change handler to hidden select (if present)
+        if (freqSelect) {
+          freqSelect.addEventListener('change', async (e) => {
+            await setFrequencyAndNotify(e.target.value);
+          });
+        }
+      }
+    })(); // immediate invocation
+
+    // Frequency UI: sync hidden select with settings (also used for restoring UI if other tabs change)
+    const freqEl = document.getElementById('freqExpend');
+    if (freqEl) {
+      const f = await getSetting('frequency') || 'month';
+      freqEl.value = f;
+    }
+
+    // SUBMIT handler — robust, prevents reload, tolerant parsing
+    if (addForm) {
+      addForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        e.stopPropagation?.();
+
+        // e.submitter gives the clicked button (supported in modern browsers)
+        const saveBtn = (e && e.submitter) || addForm.querySelector('button[type="submit"]');
+
+        // Read + normalize inputs
+        const desc = (document.getElementById('fDesc')?.value || '').trim();
+        const amountRaw = (document.getElementById('fAmount')?.value || '').trim();
+        const amountNormalized = amountRaw.replace(/\s/g, '').replace(/[$€£]/g, '').replace(/,/g, '.').replace(/[^0-9.\-]/g, '');
+        const amount = parseFloat(amountNormalized);
+        const category = (document.getElementById('fCategory')?.value || '').trim() || 'Uncategorized';
+        const priority = parseInt(document.getElementById('fPriority')?.value || 99, 10);
+
+        // Validation
+        if (!desc) { alert('Please add a description.'); return; }
+        if (Number.isNaN(amount) || amount <= 0) { alert('Please enter a valid amount greater than 0.'); return; }
+
+        // Prepare payload
+        const payload = {
+          description: desc,
+          amount: amount,
+          category,
+          priority,
+          date: new Date().toISOString(),
+          created_at: new Date().toISOString()
+        };
+
+        // UI feedback: disable Save
+        if (saveBtn) {
+          saveBtn.disabled = true;
+          const prevText = saveBtn.textContent;
+          saveBtn.textContent = 'Saving...';
+
+          try {
+            await addExpenditure(payload); // wrapper in common.js: server then fallback
+            console.log('Expense saved (attempted server + fallback).', payload);
+          } catch (err) {
+            console.error('Add failed (caught in submit):', err);
+            alert('Save failed (see console). Falling back to local storage.');
+          } finally {
+            // restore button state
+            saveBtn.disabled = false;
+            saveBtn.textContent = prevText || 'Save';
+          }
+        } else {
+          try {
+            await addExpenditure(payload);
+          } catch (err) {
+            console.error('Add failed (no saveBtn):', err);
+            alert('Save failed (see console).');
+          }
+        }
+
+        // tidy up UI and refresh
+        addForm.reset();
+        addScreen.classList.add('hidden');
+        renderExpenditures();
+      });
+    }
+
+    // render function
+    async function renderExpenditures() {
       try {
-        // render token to ignore stale renders
         const myToken = ++_expendituresRenderToken;
-
         const el = document.getElementById('expList');
         if (!el) return;
 
@@ -203,7 +270,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     }
 
-
     // DB change hooks
     if (!window._expendituresUpdatedListenerAttached) {
       window._expendituresUpdatedListenerAttached = true;
@@ -219,6 +285,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // initial render
     renderExpenditures();
+
+    // keep hidden freq select in sync with changes from other pages
+    window.addEventListener('frequencyChange', async () => {
+      const val = await getSetting('frequency');
+      if (freqSelect) freqSelect.value = val;
+      renderExpenditures();
+    });
 
   } catch (err) {
     console.error('Initialization error in expenditures page:', err);
