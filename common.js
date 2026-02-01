@@ -121,6 +121,11 @@ async function setSetting(key, value) {
     
     const { data: existing, error: selectErr } = await query.maybeSingle();
 
+    if (selectErr) {
+      console.error('[setSetting] select error', selectErr);
+      return false;
+    }
+    
     if (existing && existing.id) {
       // 4a) Row exists -> update by id (safer than trying to match again)
       console.log('[setSetting] existing row found', existing);
