@@ -52,6 +52,23 @@ html,body{
   z-index: 1300;
 }
 
+/* label next to the view icon */
+.view-label{
+  margin-left: 10px;            /* spacing between icon and text */
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+  line-height: 1;
+  display: inline-block;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+/* for very small screens, trim the label to keep layout tidy */
+@media (max-width: 360px) {
+  .view-label { font-size: 13px; margin-left: 8px; max-width: 80px; overflow: hidden; text-overflow: ellipsis; }
+}
+
 /* popup menu aligned under the left-positioned view button */
 .view-menu {
   position: absolute;
@@ -288,6 +305,7 @@ html,body{
   .main{padding-left:20px;padding-right:20px}
   .content{max-width:700px;margin:0 auto}
 }
+
 
 
 
