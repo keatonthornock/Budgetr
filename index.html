@@ -50,11 +50,27 @@
       <header class="topbar">
 
         <!-- LEFT: view button -->
-        <button id="viewToggle" class="icon-btn view-btn" aria-label="Change view">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+        <button id="viewToggle" class="icon-btn view-btn" aria-label="Change view" aria-expanded="false">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M3 5h18v2H3zM3 11h18v2H3zM3 17h18v2H3z" fill="currentColor"/>
           </svg>
         </button>
+      
+        <!-- hidden compatibility select (kept for dashboard.js and other code expecting it) -->
+        <select id="freqDashboard" class="freq-select visually-hidden" aria-hidden="true" style="display:none">
+          <option value="month">Month</option>
+          <option value="year">Year</option>
+          <option value="biweekly">Every Other Week</option>
+          <option value="weekly">Weekly</option>
+        </select>
+      
+        <!-- popup menu for small-screen view selector -->
+        <div id="viewMenu" class="view-menu" role="menu" aria-hidden="true">
+          <button class="view-item" data-value="month" role="menuitem">Month</button>
+          <button class="view-item" data-value="year" role="menuitem">Year</button>
+          <button class="view-item" data-value="biweekly" role="menuitem">Every Other Week</button>
+          <button class="view-item" data-value="weekly" role="menuitem">Weekly</button>
+        </div>
       
         <!-- CENTER: title -->
         <div class="title">Dashboard</div>
@@ -62,7 +78,7 @@
         <!-- RIGHT: settings -->
         <div class="right">
           <button id="openSettings" class="icon-btn" aria-label="Settings">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <circle cx="12" cy="5" r="1.6" fill="currentColor"/>
               <circle cx="12" cy="12" r="1.6" fill="currentColor"/>
               <circle cx="12" cy="19" r="1.6" fill="currentColor"/>
@@ -71,6 +87,7 @@
         </div>
       
       </header>
+
 
       <div class="content">
         <div class="card total-card">
@@ -136,6 +153,7 @@
   <script src="dashboard.js" defer></script>
 </body>
 </html>
+
 
 
 
