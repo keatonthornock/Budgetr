@@ -27,6 +27,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     const viewMenu = document.getElementById('viewMenu');
     const freqSelect = document.getElementById('freqExpend'); // hidden select for compatibility
 
+    // ---- view label helpers ----
+    const viewLabel = document.getElementById('viewLabel'); // from HTML
+    function readableFreq(val){
+      return ({
+        month: 'Month',
+        year: 'Year',
+        biweekly: 'Every Other Week',
+        weekly: 'Weekly'
+      })[val] || String(val || '').replace(/^\w/, c => c.toUpperCase());
+    }
+    function setViewLabel(val){
+      if(!viewLabel) return;
+      viewLabel.textContent = readableFreq(val);
+    }
+    
     // Basic sanity
     if (!showAddBtn || !addScreen || !addForm || !cancelAdd) {
       console.error('Missing required elements:', {
@@ -89,6 +104,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         } catch (e) {
           console.warn('[viewToggle] getSetting failed', e);
           setActiveViewItem('month');
+          setViewLabel('month');   // <-- add this
         }
     
         // compute menu position under button
@@ -156,6 +172,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           console.error('[viewToggle] error while setting frequency', err);
         } finally {
           setActiveViewItem(val);
+          setViewLabel(val);   // <-- update visible label
           closeMenu();
         }
       });
@@ -357,6 +374,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.addEventListener('frequencyChange', async () => {
       const val = await getSetting('frequency');
       if (freqSelect) freqSelect.value = val;
+      setViewLabel(val);    // <-- keep label in sync
       renderExpenditures();
     });
 
