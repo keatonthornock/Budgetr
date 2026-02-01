@@ -42,6 +42,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       viewLabel.textContent = readableFreq(val);
     }
 
+    setActiveViewItem(initialFreq);
+    // show the human-friendly label on load
+    setViewLabel(initialFreq);
+
     // Basic sanity
     if (!showAddBtn || !addScreen || !addForm || !cancelAdd) {
       console.error('Missing required elements:', {
