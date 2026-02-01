@@ -104,32 +104,22 @@ async function setSetting(key, value) {
       return false;
     }
 
-    // 3) Try to find an existing row for this (user_id, key)
-    const { data: existing, error: selectErr } = await supabaseClient
+    // 3) Try to find an existing row
+    const isShared = SHARED_SETTING_KEYS.has(key);
+    const householdId = isShared ? await getMyHouseholdId() : null;
+    
+    let query = supabaseClient
       .from('user_settings')
-      .select('id, value, updated_at')
-      const isShared = SHARED_SETTING_KEYS.has(key);
-      const householdId = isShared ? await getMyHouseholdId() : null;
-      
-      let query = supabaseClient
-        .from('user_settings')
-        .select('id')
-        .eq('key', key);
-      
-      if (isShared && householdId) {
-        query = query.eq('household_id', householdId);
-      } else {
-        query = query.eq('user_id', user.id);
-      }
-      
-      const { data: existing, error: selectErr } = await query.maybeSingle();
-      .maybeSingle();
-
-    if (selectErr) {
-      // If select error is thrown, log and stop; this avoids blind inserts that cause duplicate key errors
-      console.error('[setSetting] select error', selectErr);
-      return false;
+      .select('id')
+      .eq('key', key);
+    
+    if (isShared && householdId) {
+      query = query.eq('household_id', householdId);
+    } else {
+      query = query.eq('user_id', user.id);
     }
+    
+    const { data: existing, error: selectErr } = await query.maybeSingle();
 
     if (existing && existing.id) {
       // 4a) Row exists -> update by id (safer than trying to match again)
@@ -210,39 +200,33 @@ async function getSetting(key) {
       if (userErr) {
         console.warn('getSetting: auth.getUser error', userErr);
       }
-      if (user) {
-        // maybeSingle avoids throwing when there are 0 rows. If there are multiple rows,
-        // Supabase will return an error, which we check.
-        const { data, error } = await supabaseClient
-          .from('user_settings')
-          .select('value')
-          const isShared = SHARED_SETTING_KEYS.has(key);
-          const householdId = isShared ? await getMyHouseholdId() : null;
-          
-          let query = supabaseClient
-            .from('user_settings')
-            .select('value')
-            .eq('key', key);
-          
-          if (isShared && householdId) {
-            query = query.eq('household_id', householdId);
-          } else {
-            query = query.eq('user_id', user.id);
-          }
-          
-          const { data, error } = await query.maybeSingle();
-          .maybeSingle();
+      if (!user) return null;
 
-        if (error) {
-          console.error('getSetting: Supabase select error', error, { user_id: user.id, key });
-          return null;
-        }
+      const isShared = SHARED_SETTING_KEYS.has(key);
+      const householdId = isShared ? await getMyHouseholdId() : null;
 
-        if (data && data.value !== undefined) {
-          // update local cache for offline use
-          await db.settings.put({ key, value: data.value });
-          return data.value;
-        }
+      let query = supabaseClient
+        .from('user_settings')
+        .select('value')
+        .eq('key', key);
+
+      if (isShared && householdId) {
+        query = query.eq('household_id', householdId);
+      } else {
+        query = query.eq('user_id', user.id);
+      }
+
+      const { data, error } = await query.maybeSingle();
+
+      if (error) {
+        console.error('getSetting: Supabase select error', error, { key });
+        return null;
+      }
+
+      if (data && data.value !== undefined) {
+        // cache locally
+        await db.settings.put({ key, value: data.value });
+        return data.value;
       }
     }
 
