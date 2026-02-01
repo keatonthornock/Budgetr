@@ -57,73 +57,140 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // VIEW TOGGLE: popup menu handling (safe guards if elements missing)
-    (function wireViewToggle() {
-      // if freqSelect missing, we still let the view-menu set frequency via setFrequencyAndNotify
-      const initialFreq = awaitGetSettingSync();
-
-      function awaitGetSettingSync() {
-        // can't use top-level await inside this helper easily — return a promise that resolves quickly
-        let p = getSetting('frequency').catch(() => 'month');
-        return p;
-      }
-
-      // mark active menu item helper
-      function setActiveViewItem(val) {
-        viewMenu?.querySelectorAll('.view-item').forEach(b => {
-          b.classList.toggle('active', b.dataset.value === val);
-        });
-      }
-
-      // open/close and selection wiring
-      if (viewToggle && viewMenu) {
-        // set initial active based on DB value
-        getSetting('frequency').then(v => setActiveViewItem(v || 'month'));
-
-        viewToggle.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const opened = viewMenu.classList.toggle('open');
-          viewToggle.setAttribute('aria-expanded', opened ? 'true' : 'false');
-          if (opened) {
+    (async function wireViewToggleRobust() {
+      try {
+        const viewToggle = document.getElementById('viewToggle');
+        const viewMenu = document.getElementById('viewMenu');
+        const freqSelect = document.getElementById('freqExpend');
+    
+        console.log('[viewToggle] init', { viewToggle: !!viewToggle, viewMenu: !!viewMenu, freqSelect: !!freqSelect });
+    
+        if (!viewToggle) return console.warn('[viewToggle] button not found - aborting view toggle setup');
+        if (!viewMenu) return console.warn('[viewToggle] menu (#viewMenu) not found - aborting view toggle setup');
+    
+        // Move menu to body so it won't be clipped by header/container overflow
+        if (viewMenu.parentElement !== document.body) {
+          document.body.appendChild(viewMenu);
+          // ensure the menu uses fixed positioning (JS will set left/top)
+          viewMenu.style.position = 'fixed';
+        }
+    
+        // helper: mark active menu item
+        function setActiveViewItem(val) {
+          viewMenu.querySelectorAll('.view-item').forEach(b => {
+            b.classList.toggle('active', b.dataset.value === val);
+          });
+        }
+    
+        // set initial active menu item from settings
+        try {
+          const v = await getSetting('frequency').catch(() => 'month');
+          setActiveViewItem(v || 'month');
+        } catch (e) {
+          console.warn('[viewToggle] getSetting failed', e);
+          setActiveViewItem('month');
+        }
+    
+        // compute menu position under button
+        function positionMenu() {
+          const rect = viewToggle.getBoundingClientRect();
+          const menuRect = viewMenu.getBoundingClientRect();
+          // prefer aligning left edge of menu with button, but ensure menu stays on-screen
+          let left = Math.max(8, rect.left);
+          // if menu would overflow right, push it left
+          if (left + menuRect.width > window.innerWidth - 8) {
+            left = Math.max(8, window.innerWidth - menuRect.width - 8);
+          }
+          // place menu slightly below the button
+          let top = rect.bottom + 8;
+          // if menu would overflow bottom, place it above
+          if (top + menuRect.height > window.innerHeight - 8) {
+            top = Math.max(8, rect.top - 8 - menuRect.height);
+          }
+          viewMenu.style.left = `${Math.round(left)}px`;
+          viewMenu.style.top = `${Math.round(top)}px`;
+        }
+    
+        // toggle visibility and position
+        function openMenu() {
+          viewMenu.classList.add('open');
+          viewMenu.setAttribute('aria-hidden', 'false');
+          viewToggle.setAttribute('aria-expanded', 'true');
+          viewMenu.style.display = 'block';
+          // small delay to allow menu to render and measure
+          requestAnimationFrame(() => positionMenu());
+        }
+        function closeMenu() {
+          viewMenu.classList.remove('open');
+          viewMenu.setAttribute('aria-hidden', 'true');
+          viewToggle.setAttribute('aria-expanded', 'false');
+          viewMenu.style.display = '';
+        }
+    
+        // attach click handler to the toggle button
+        viewToggle.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          ev.preventDefault();
+          // toggle open/close
+          if (viewMenu.classList.contains('open')) {
+            closeMenu();
+          } else {
+            openMenu();
+            // focus first active item for a11y
             const active = viewMenu.querySelector('.view-item.active') || viewMenu.querySelector('.view-item');
             active && active.focus();
           }
         });
 
-        viewMenu.querySelectorAll('.view-item').forEach(btn => {
-          btn.addEventListener('click', async (ev) => {
-            const val = btn.dataset.value;
-            if (!val) return;
-            if (freqSelect) freqSelect.value = val;
-            await setFrequencyAndNotify(val);   // updates DB & fires frequencyChange
-            setActiveViewItem(val);
-            viewMenu.classList.remove('open');
-            viewToggle.setAttribute('aria-expanded', 'false');
-          });
-        });
-
-        // close menu on outside click or Escape
-        document.addEventListener('click', () => {
-          if (viewMenu.classList.contains('open')) {
-            viewMenu.classList.remove('open');
-            viewToggle.setAttribute('aria-expanded', 'false');
-          }
-        });
-        viewMenu.addEventListener('keydown', (e) => {
-          if (e.key === 'Escape') {
-            viewMenu.classList.remove('open');
-            viewToggle.setAttribute('aria-expanded', 'false');
-            viewToggle.focus();
-          }
-        });
-      } else {
-        // fallback: if no view toggle/menu, attach change handler to hidden select (if present)
-        if (freqSelect) {
-          freqSelect.addEventListener('change', async (e) => {
-            await setFrequencyAndNotify(e.target.value);
-          });
+    // hook each menu item
+    viewMenu.querySelectorAll('.view-item').forEach(btn => {
+      btn.addEventListener('click', async (ev) => {
+        ev.stopPropagation();
+        const val = btn.dataset.value;
+        if (!val) return;
+        try {
+          if (freqSelect) freqSelect.value = val;
+          // setFrequencyAndNotify is your existing helper
+          await setFrequencyAndNotify(val);
+        } catch (err) {
+          console.error('[viewToggle] error while setting frequency', err);
+        } finally {
+          setActiveViewItem(val);
+          closeMenu();
         }
+      });
+    });
+
+    // close menu on outside click
+    function onDocClick(e) {
+      if (!viewMenu.classList.contains('open')) return;
+      // if click was inside menu or toggle, ignore
+      if (e.target === viewToggle || viewToggle.contains(e.target) || viewMenu.contains(e.target)) return;
+      closeMenu();
+    }
+    document.addEventListener('click', onDocClick, { capture: true });
+
+    // close on ESC
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && viewMenu.classList.contains('open')) {
+        closeMenu();
+        viewToggle.focus();
       }
-    })(); // immediate invocation
+    });
+
+    // reposition on resize/scroll (keeps it anchored)
+    window.addEventListener('resize', () => {
+      if (viewMenu.classList.contains('open')) positionMenu();
+    });
+    window.addEventListener('scroll', () => {
+      if (viewMenu.classList.contains('open')) positionMenu();
+    }, true);
+
+    console.log('[viewToggle] wired successfully');
+  } catch (err) {
+    console.error('[viewToggle] initialization error:', err);
+  }
+})();
 
     // Frequency UI: sync hidden select with settings (also used for restoring UI if other tabs change)
     const freqEl = document.getElementById('freqExpend');
