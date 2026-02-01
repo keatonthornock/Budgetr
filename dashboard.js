@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     return ({
       month: 'Month',
       year: 'Year',
-      biweekly: 'Every Other Week',
+      biweekly: 'Bi-Week',
       weekly: 'Week'
     })[val] || String(val || '').replace(/^\w/, c=>c.toUpperCase());
   }
