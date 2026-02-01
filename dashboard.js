@@ -41,6 +41,8 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     });
   }
   setActiveViewItem(initialFreq);
+  // show the human-friendly label on load
+  setViewLabel(initialFreq);
 
   // toggle popup (guard if button/menu missing)
   if (viewToggle && viewMenu) {
@@ -48,6 +50,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
       e.stopPropagation();
       const opened = viewMenu.classList.toggle('open');
       viewToggle.setAttribute('aria-expanded', opened ? 'true' : 'false');
+      viewMenu.setAttribute('aria-hidden', opened ? 'false' : 'true');
       if (opened) {
         const active = viewMenu.querySelector('.view-item.active') || viewMenu.querySelector('.view-item');
         active && active.focus();
@@ -62,6 +65,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
         if (freqSelect) freqSelect.value = val;
         await setFrequencyAndNotify(val);   // existing helper — updates DB & fires frequencyChange
         setActiveViewItem(val);
+        setViewLabel(val);                  // ← update the visible label
         viewMenu.classList.remove('open');
         viewToggle.setAttribute('aria-expanded', 'false');
       });
@@ -93,7 +97,11 @@ document.addEventListener('DOMContentLoaded', async ()=>{
 
   // react when other pages/tabs change frequency
   window.addEventListener('frequencyChange', () => {
-    getSetting('frequency').then(val => { freqSelect.value = val; renderAll(); });
+    getSetting('frequency').then(val => {
+      if (freqSelect) freqSelect.value = val;
+      setViewLabel(val);   // keep the view-label in sync across tabs
+      renderAll();
+    });
   });
 
   // react when settings change (from this tab or others)
