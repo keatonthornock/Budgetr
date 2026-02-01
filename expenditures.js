@@ -101,10 +101,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
           const v = await getSetting('frequency').catch(() => 'month');
           setActiveViewItem(v || 'month');
+          setViewLabel(v || 'month');
         } catch (e) {
           console.warn('[viewToggle] getSetting failed', e);
           setActiveViewItem('month');
-          setViewLabel('month');   // <-- add this
+          setViewLabel('month');  
         }
     
         // compute menu position under button
@@ -214,6 +215,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (freqEl) {
       const f = await getSetting('frequency') || 'month';
       freqEl.value = f;
+      setViewLabel(f);
     }
 
     // SUBMIT handler — robust, prevents reload, tolerant parsing
