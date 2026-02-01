@@ -82,7 +82,10 @@ html,body{
 }
 .view-item:hover { background: rgba(255,255,255,0.02); }
 .view-item.active { background: rgba(255,255,255,0.03); font-weight:600; }
+/* small accessibility nicety: focus ring */
 .view-item:focus { outline: 2px solid rgba(255,255,255,0.06); outline-offset: 2px; }
+/* helper: hide the fallback select visually but keep in DOM */
+.visually-hidden { position: absolute !important; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; }
 
 
 .title{
@@ -285,6 +288,7 @@ html,body{
   .main{padding-left:20px;padding-right:20px}
   .content{max-width:700px;margin:0 auto}
 }
+
 
 
 
