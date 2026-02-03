@@ -164,14 +164,11 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   }
 
   function computeAvgMonthly(items){
-    if(!items || items.length===0) return 0;
-    const dates = items.map(i => new Date(i.date || i.created_at));
-    const min = new Date(Math.min(...dates.map(d=>d.getTime())));
-    const max = new Date(Math.max(...dates.map(d=>d.getTime())));
-    const months = Math.abs((max.getFullYear()-min.getFullYear())*12 + (max.getMonth()-min.getMonth())) + 1;
-    const total = items.reduce((s,i)=>s + Number(i.amount || 0), 0);
-    return total / Math.max(1, months);
+    if(!items || items.length === 0) return 0;
+    // amounts entered are already monthly-base, so the "average monthly" is simply the total monthly
+    return items.reduce((s, i) => s + Number(i.amount || 0), 0);
   }
+
 
   async function renderTotals(items){
     const freq = await getSetting('frequency') || 'month';
