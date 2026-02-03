@@ -165,9 +165,21 @@ document.addEventListener('DOMContentLoaded', async ()=>{
 
   function computeAvgMonthly(items){
     if(!items || items.length === 0) return 0;
-    // amounts entered are already monthly-base, so the "average monthly" is simply the total monthly
-    return items.reduce((s, i) => s + Number(i.amount || 0), 0);
+  
+    // group by year-month
+    const months = new Map();
+    items.forEach(i => {
+      const d = new Date(i.date || i.created_at || Date.now());
+      if (isNaN(d)) return;
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      months.set(key, (months.get(key) || 0) + Number(i.amount || 0));
+    });
+  
+    if (months.size === 0) return 0;
+    const total = Array.from(months.values()).reduce((s,v) => s + v, 0);
+    return total / months.size;
   }
+
 
 
   async function renderTotals(items){
