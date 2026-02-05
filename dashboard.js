@@ -183,17 +183,37 @@ document.addEventListener('DOMContentLoaded', async ()=>{
 
 
   async function renderTotals(items){
+    // read frequency + multiplier
     const freq = await getSetting('frequency') || 'month';
     const m = multiplierFor(freq);
-    const totalMonthly = items.reduce((s,i)=>s + Number(i.amount||0), 0);
-    document.getElementById('totalSpent').textContent = formatMoney(totalMonthly * m);
-
-    const netMonthly = parseFloat(await getSetting('netMonthly') || 0);
-    document.getElementById('netIncome').textContent = formatMoney(netMonthly * m);
-
-    const avgMonthly = computeAvgMonthly(items);
-    document.getElementById('remaining').textContent = formatMoney(Math.max(0, (netMonthly - avgMonthly) * m));
+  
+    // total of amounts stored in the DB (assume amounts are monthly-base values)
+    const totalMonthly = (items || []).reduce((s,i) => s + Number(i.amount || 0), 0);
+  
+    // read netMonthly from settings — ensure numeric
+    const rawNet = await getSetting('netMonthly');
+    const netMonthly = Number(rawNet) || 0;
+  
+    // displayed values (apply frequency multiplier)
+    const totalDisplayed = totalMonthly * m;
+    const netDisplayed = netMonthly * m;
+  
+    // remaining = netDisplayed - totalDisplayed (keeps sign if over/under)
+    // If you prefer to never show negative values, wrap with Math.max(0, remaining)
+    const remaining = (netMonthly - totalMonthly) * m;
+  
+    // write UI
+    document.getElementById('totalSpent').textContent = formatMoney(totalDisplayed);
+    document.getElementById('netIncome').textContent = formatMoney(netDisplayed);
+    document.getElementById('remaining').textContent = formatMoney(remaining);
+  
+    // helpful debug output (remove or comment out once confident)
+    console.debug('renderTotals debug', {
+      freq, m, itemsCount: (items || []).length,
+      totalMonthly, rawNet, netMonthly, totalDisplayed, netDisplayed, remaining
+    });
   }
+
 
   function renderCategory(items){
     const map = {};
