@@ -1,6 +1,5 @@
 // expenditures.js — robust + view-toggle
 document.addEventListener('DOMContentLoaded', async () => {
-  // --- HARD GATE: wait for auth + supabase sync before rendering ---
   const { data: { session } } = await supabaseClient.auth.getSession();
   if (!session || !session.user) {
     location.href = 'login.html';
@@ -8,27 +7,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   let renderQueued = false;
+  let editMode = false;
 
-  // Wait for server → Dexie sync to fully complete
   await initSupabaseSync();
 
   try {
-    // set active nav for expenditures page
     if (typeof setActiveNav === 'function') setActiveNav('navExpend');
 
-    // Elements
     const showAddBtn = document.getElementById('showAddBtn');
-    const addScreen = document.getElementById('addScreen');
-    const addForm = document.getElementById('addForm');
-    const cancelAdd = document.getElementById('cancelAdd');
+    const editModeBtn = document.getElementById('editModeBtn');
 
-    // View toggle / menu elements (left calendar popup)
     const viewToggle = document.getElementById('viewToggle');
     const viewMenu = document.getElementById('viewMenu');
-    const freqSelect = document.getElementById('freqExpend'); // hidden select for compatibility
+    const freqSelect = document.getElementById('freqExpend');
 
-    // ---- view label helpers ----
-    const viewLabel = document.getElementById('viewLabel'); // from HTML
+    const viewLabel = document.getElementById('viewLabel');
     function readableFreq(val){
       return ({
         month: 'Month',
@@ -41,63 +34,92 @@ document.addEventListener('DOMContentLoaded', async () => {
       if(!viewLabel) return;
       viewLabel.textContent = readableFreq(val);
     }
-    
-    // Basic sanity
-    if (!showAddBtn || !addScreen || !addForm || !cancelAdd) {
-      console.error('Missing required elements:', {
-        showAddBtn: !!showAddBtn,
-        addScreen: !!addScreen,
-        addForm: !!addForm,
-        cancelAdd: !!cancelAdd
-      });
-      // don't return — the page can still render, but we log the error
+
+    function setEditMode(nextValue) {
+      editMode = !!nextValue;
+      document.body.classList.toggle('exp-edit-mode', editMode);
+      if (editModeBtn) {
+        editModeBtn.textContent = editMode ? 'Done' : 'Edit';
+        editModeBtn.setAttribute('aria-pressed', String(editMode));
+      }
+      renderExpenditures();
     }
 
-    // Rendering guard and delegation guard (prevents duplicated DOM nodes / handlers)
+    function promptForExpense() {
+      const description = window.prompt('Expense description');
+      if (description === null) return null;
+      const desc = description.trim();
+      if (!desc) {
+        alert('Please enter a description.');
+        return null;
+      }
+
+      const amountRaw = window.prompt('Amount', '0.00');
+      if (amountRaw === null) return null;
+      const amount = parseFloat(String(amountRaw).trim().replace(/\s/g, '').replace(/[$€£]/g, '').replace(/,/g, '.').replace(/[^0-9.\-]/g, ''));
+      if (Number.isNaN(amount) || amount <= 0) {
+        alert('Please enter a valid amount greater than 0.');
+        return null;
+      }
+
+      const categoryRaw = window.prompt('Category', 'Uncategorized');
+      if (categoryRaw === null) return null;
+      const priorityRaw = window.prompt('Priority (1 = highest)', '99');
+      if (priorityRaw === null) return null;
+
+      return {
+        description: desc,
+        amount,
+        category: categoryRaw.trim() || 'Uncategorized',
+        priority: parseInt(priorityRaw, 10) || 99,
+        date: new Date().toISOString(),
+        created_at: new Date().toISOString()
+      };
+    }
+
     let _expendituresRenderToken = 0;
     let _expListDelegateAttached = false;
 
-    // Show/hide add screen (keeps your previous behavior)
     if (showAddBtn) {
-      showAddBtn.addEventListener('click', () => {
-        addScreen.classList.remove('hidden');
-        try { addScreen.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) { /* ignore */ }
-      });
-    }
-    if (cancelAdd) {
-      cancelAdd.addEventListener('click', () => {
-        addForm.reset();
-        addScreen.classList.add('hidden');
+      showAddBtn.addEventListener('click', async () => {
+        const payload = promptForExpense();
+        if (!payload) return;
+
+        showAddBtn.disabled = true;
+        try {
+          await addExpenditure(payload);
+          renderExpenditures();
+        } catch (err) {
+          console.error('Add failed:', err);
+          alert('Could not save expense. Please try again.');
+        } finally {
+          showAddBtn.disabled = false;
+        }
       });
     }
 
-    // VIEW TOGGLE: popup menu handling (safe guards if elements missing)
+    if (editModeBtn) {
+      editModeBtn.addEventListener('click', () => setEditMode(!editMode));
+    }
+
     (async function wireViewToggleRobust() {
       try {
-        const viewToggle = document.getElementById('viewToggle');
-        const viewMenu = document.getElementById('viewMenu');
-        const freqSelect = document.getElementById('freqExpend');
-    
         console.log('[viewToggle] init', { viewToggle: !!viewToggle, viewMenu: !!viewMenu, freqSelect: !!freqSelect });
-    
+
         if (!viewToggle) return console.warn('[viewToggle] button not found - aborting view toggle setup');
         if (!viewMenu) return console.warn('[viewToggle] menu (#viewMenu) not found - aborting view toggle setup');
-    
-        // Move menu to body so it won't be clipped by header/container overflow
+
         if (viewMenu.parentElement !== document.body) {
           document.body.appendChild(viewMenu);
-          // ensure the menu uses fixed positioning (JS will set left/top)
           viewMenu.style.position = 'fixed';
         }
-    
-        // helper: mark active menu item
+
         function setActiveViewItem(val) {
           viewMenu.querySelectorAll('.view-item').forEach(b => {
             b.classList.toggle('active', b.dataset.value === val);
           });
         }
-    
-        // set initial active menu item from settings
+
         try {
           const v = await getSetting('frequency').catch(() => 'month');
           setActiveViewItem(v || 'month');
@@ -105,36 +127,29 @@ document.addEventListener('DOMContentLoaded', async () => {
         } catch (e) {
           console.warn('[viewToggle] getSetting failed', e);
           setActiveViewItem('month');
-          setViewLabel('month');  
+          setViewLabel('month');
         }
-    
-        // compute menu position under button
+
         function positionMenu() {
           const rect = viewToggle.getBoundingClientRect();
           const menuRect = viewMenu.getBoundingClientRect();
-          // prefer aligning left edge of menu with button, but ensure menu stays on-screen
           let left = Math.max(8, rect.left);
-          // if menu would overflow right, push it left
           if (left + menuRect.width > window.innerWidth - 8) {
             left = Math.max(8, window.innerWidth - menuRect.width - 8);
           }
-          // place menu slightly below the button
           let top = rect.bottom + 8;
-          // if menu would overflow bottom, place it above
           if (top + menuRect.height > window.innerHeight - 8) {
             top = Math.max(8, rect.top - 8 - menuRect.height);
           }
           viewMenu.style.left = `${Math.round(left)}px`;
           viewMenu.style.top = `${Math.round(top)}px`;
         }
-    
-        // toggle visibility and position
+
         function openMenu() {
           viewMenu.classList.add('open');
           viewMenu.setAttribute('aria-hidden', 'false');
           viewToggle.setAttribute('aria-expanded', 'true');
           viewMenu.style.display = 'block';
-          // small delay to allow menu to render and measure
           requestAnimationFrame(() => positionMenu());
         }
         function closeMenu() {
@@ -143,74 +158,64 @@ document.addEventListener('DOMContentLoaded', async () => {
           viewToggle.setAttribute('aria-expanded', 'false');
           viewMenu.style.display = '';
         }
-    
-        // attach click handler to the toggle button
+
         viewToggle.addEventListener('click', (ev) => {
           ev.stopPropagation();
           ev.preventDefault();
-          // toggle open/close
           if (viewMenu.classList.contains('open')) {
             closeMenu();
           } else {
             openMenu();
-            // focus first active item for a11y
             const active = viewMenu.querySelector('.view-item.active') || viewMenu.querySelector('.view-item');
             active && active.focus();
           }
         });
 
-    // hook each menu item
-    viewMenu.querySelectorAll('.view-item').forEach(btn => {
-      btn.addEventListener('click', async (ev) => {
-        ev.stopPropagation();
-        const val = btn.dataset.value;
-        if (!val) return;
-        try {
-          if (freqSelect) freqSelect.value = val;
-          // setFrequencyAndNotify is your existing helper
-          await setFrequencyAndNotify(val);
-        } catch (err) {
-          console.error('[viewToggle] error while setting frequency', err);
-        } finally {
-          setActiveViewItem(val);
-          setViewLabel(val);   // <-- update visible label
+        viewMenu.querySelectorAll('.view-item').forEach(btn => {
+          btn.addEventListener('click', async (ev) => {
+            ev.stopPropagation();
+            const val = btn.dataset.value;
+            if (!val) return;
+            try {
+              if (freqSelect) freqSelect.value = val;
+              await setFrequencyAndNotify(val);
+            } catch (err) {
+              console.error('[viewToggle] error while setting frequency', err);
+            } finally {
+              setActiveViewItem(val);
+              setViewLabel(val);
+              closeMenu();
+            }
+          });
+        });
+
+        function onDocClick(e) {
+          if (!viewMenu.classList.contains('open')) return;
+          if (e.target === viewToggle || viewToggle.contains(e.target) || viewMenu.contains(e.target)) return;
           closeMenu();
         }
-      });
-    });
+        document.addEventListener('click', onDocClick, { capture: true });
 
-    // close menu on outside click
-    function onDocClick(e) {
-      if (!viewMenu.classList.contains('open')) return;
-      // if click was inside menu or toggle, ignore
-      if (e.target === viewToggle || viewToggle.contains(e.target) || viewMenu.contains(e.target)) return;
-      closeMenu();
-    }
-    document.addEventListener('click', onDocClick, { capture: true });
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape' && viewMenu.classList.contains('open')) {
+            closeMenu();
+            viewToggle.focus();
+          }
+        });
 
-    // close on ESC
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && viewMenu.classList.contains('open')) {
-        closeMenu();
-        viewToggle.focus();
+        window.addEventListener('resize', () => {
+          if (viewMenu.classList.contains('open')) positionMenu();
+        });
+        window.addEventListener('scroll', () => {
+          if (viewMenu.classList.contains('open')) positionMenu();
+        }, true);
+
+        console.log('[viewToggle] wired successfully');
+      } catch (err) {
+        console.error('[viewToggle] initialization error:', err);
       }
-    });
+    })();
 
-    // reposition on resize/scroll (keeps it anchored)
-    window.addEventListener('resize', () => {
-      if (viewMenu.classList.contains('open')) positionMenu();
-    });
-    window.addEventListener('scroll', () => {
-      if (viewMenu.classList.contains('open')) positionMenu();
-    }, true);
-
-    console.log('[viewToggle] wired successfully');
-  } catch (err) {
-    console.error('[viewToggle] initialization error:', err);
-  }
-})();
-
-    // Frequency UI: sync hidden select with settings (also used for restoring UI if other tabs change)
     const freqEl = document.getElementById('freqExpend');
     if (freqEl) {
       const f = await getSetting('frequency') || 'month';
@@ -218,88 +223,19 @@ document.addEventListener('DOMContentLoaded', async () => {
       setViewLabel(f);
     }
 
-    // SUBMIT handler — robust, prevents reload, tolerant parsing
-    if (addForm) {
-      addForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        e.stopPropagation?.();
-
-        // e.submitter gives the clicked button (supported in modern browsers)
-        const saveBtn = (e && e.submitter) || addForm.querySelector('button[type="submit"]');
-
-        // Read + normalize inputs
-        const desc = (document.getElementById('fDesc')?.value || '').trim();
-        const amountRaw = (document.getElementById('fAmount')?.value || '').trim();
-        const amountNormalized = amountRaw.replace(/\s/g, '').replace(/[$€£]/g, '').replace(/,/g, '.').replace(/[^0-9.\-]/g, '');
-        const amount = parseFloat(amountNormalized);
-        const category = (document.getElementById('fCategory')?.value || '').trim() || 'Uncategorized';
-        const priority = parseInt(document.getElementById('fPriority')?.value || 99, 10);
-
-        // Validation
-        if (!desc) { alert('Please add a description.'); return; }
-        if (Number.isNaN(amount) || amount <= 0) { alert('Please enter a valid amount greater than 0.'); return; }
-
-        // Prepare payload
-        const payload = {
-          description: desc,
-          amount: amount,
-          category,
-          priority,
-          date: new Date().toISOString(),
-          created_at: new Date().toISOString()
-        };
-
-        // UI feedback: disable Save
-        if (saveBtn) {
-          saveBtn.disabled = true;
-          const prevText = saveBtn.textContent;
-          saveBtn.textContent = 'Saving...';
-
-          try {
-            await addExpenditure(payload); // wrapper in common.js: server then fallback
-            console.log('Expense saved (attempted server + fallback).', payload);
-          } catch (err) {
-            console.error('Add failed (caught in submit):', err);
-            alert('Save failed (see console). Falling back to local storage.');
-          } finally {
-            // restore button state
-            saveBtn.disabled = false;
-            saveBtn.textContent = prevText || 'Save';
-          }
-        } else {
-          try {
-            await addExpenditure(payload);
-          } catch (err) {
-            console.error('Add failed (no saveBtn):', err);
-            alert('Save failed (see console).');
-          }
-        }
-
-        // tidy up UI and refresh
-        addForm.reset();
-        addScreen.classList.add('hidden');
-        renderExpenditures();
-      });
-    }
-
-    // render function
     async function renderExpenditures() {
       try {
         const myToken = ++_expendituresRenderToken;
         const el = document.getElementById('expList');
         if (!el) return;
 
-        // clear immediately to avoid visible duplicates while waiting
         el.innerHTML = '';
 
-        // fetch items
         const items = await db.expenditures.orderBy('priority').toArray();
-
-        // if another render started, abort this one
         if (myToken !== _expendituresRenderToken) return;
 
         if (!items || items.length === 0) {
-          el.innerHTML = '<div class="chip">No expenditures</div>';
+          el.innerHTML = '<div class="chip empty-state">No expenditures yet</div>';
           return;
         }
 
@@ -307,7 +243,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (myToken !== _expendituresRenderToken) return;
         const m = multiplierFor(freq);
 
-        // build fragment
         const frag = document.createDocumentFragment();
         for (const it of items) {
           const row = document.createElement('div');
@@ -319,19 +254,17 @@ document.addEventListener('DOMContentLoaded', async () => {
               <div class="exp-category">${escapeHtml(it.category)}</div>
             </div>
             <div class="exp-cost">${formatMoney(it.amount * m)}</div>
-            <div class="priority">${escapeHtml(String(it.priority))}</div>
-            <div style="display:flex;gap:8px;justify-content:flex-end">
-              <div class="exp-cat">${escapeHtml(it.category)}</div>
-              <button data-id="${it.id}" class="btn ghost small del">Delete</button>
+            <div class="priority"><span class="priority-pill">P${escapeHtml(String(it.priority))}</span></div>
+            <div class="exp-meta-cell">
+              <span class="exp-cat">${escapeHtml(it.category)}</span>
+              ${editMode ? `<button data-id="${it.id}" class="btn ghost small del">Delete</button>` : ''}
             </div>
           `;
           frag.appendChild(row);
         }
 
-        // atomic replace
         el.replaceChildren(frag);
 
-        // attach delegated delete handler once
         if (!_expListDelegateAttached) {
           _expListDelegateAttached = true;
           el.addEventListener('click', async (e) => {
@@ -346,7 +279,6 @@ document.addEventListener('DOMContentLoaded', async () => {
               console.error('Delete failed, deleting locally', err);
               await db.expenditures.delete(id);
             }
-            // fresh render
             renderExpenditures();
           });
         }
@@ -356,7 +288,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     }
 
-    // DB change hooks
     if (!window._expendituresUpdatedListenerAttached) {
       window._expendituresUpdatedListenerAttached = true;
       window.addEventListener('expendituresUpdated', () => {
@@ -369,14 +300,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
     }
 
-    // initial render
-    renderExpenditures();
+    setEditMode(false);
 
-    // keep hidden freq select in sync with changes from other pages
     window.addEventListener('frequencyChange', async () => {
       const val = await getSetting('frequency');
       if (freqSelect) freqSelect.value = val;
-      setViewLabel(val);    // <-- keep label in sync
+      setViewLabel(val);
       renderExpenditures();
     });
 

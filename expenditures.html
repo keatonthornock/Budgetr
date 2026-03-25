@@ -12,11 +12,8 @@
 
   <link rel="stylesheet" href="styles.css">
 
-  <!-- libs (must load before common.js) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script src="https://unpkg.com/dexie@3.2.2/dist/dexie.min.js"></script>
-
-  <!-- common (init supabase client + Dexie + helpers) - load synchronously so auth-check can run immediately -->
   <script src="common.js"></script>
 
 </head>
@@ -25,40 +22,32 @@
   <div class="app">
     <main class="main">
       <header class="topbar">
-        <!-- LEFT: calendar view toggle -->
         <button id="viewToggle" class="icon-btn view-btn" aria-label="Change view" aria-expanded="false">
-          <!-- calendar date-range SVG -->
           <svg width="18" height="18" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round"
               d="M6.75 2.994v2.25m10.5-2.25v2.25m-14.252 13.5V7.491a2.25 2.25 0 0 1 2.25-2.25h13.5a2.25 2.25 0 0 1 2.25 2.25v11.251m-18 0a2.25 2.25 0 0 0 2.25 2.25h13.5a2.25 2.25 0 0 0 2.25-2.25m-18 0v-7.5a2.25 2.25 0 0 1 2.25-2.25h13.5a2.25 2.25 0 0 1 2.25 2.25v7.5m-6.75-6h2.25m-9 2.25h4.5m.002-2.25h.005v.006H12v-.006Zm-.001 4.5h.006v.006h-.006v-.005Zm-2.25.001h.005v.006H9.75v-.006Zm-2.25 0h.005v.005h-.006v-.005Zm6.75-2.247h.005v.005h-.005v-.005Zm0 2.247h.006v.006h-.006v-.006Zm2.25-2.248h.006V15H16.5v-.005Z" />
           </svg>
-          <!-- visible label next to the icon -->
           <span id="viewLabel" class="view-label" aria-hidden="true">Month</span>
         </button>
-      
-        <!-- CENTER: title -->
+
         <div class="title">Expenditures</div>
-      
-        <!-- RIGHT: Add button (Google-style + icon). Uses same id #showAddBtn used by your JS -->
+
         <div class="right">
           <button id="showAddBtn" class="icon-btn" aria-label="Add expenditure">
-            <!-- simple plus-in-circle icon -->
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
               <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.2" fill="none"></circle>
               <path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </button>
         </div>
-      
-        <!-- hidden select kept for backward compatibility (your JS expects #freqExpend) -->
+
         <select id="freqExpend" class="freq-select" aria-hidden="true" style="display:none;">
           <option value="month">Month</option>
           <option value="year">Year</option>
           <option value="biweekly">Bi-Week</option>
           <option value="weekly">Week</option>
         </select>
-      
-        <!-- popup menu for the view toggle (positioned by your .view-menu CSS) -->
+
         <div id="viewMenu" class="view-menu" role="menu" aria-hidden="true">
           <button class="view-item" data-value="month" role="menuitem">Month</button>
           <button class="view-item" data-value="year" role="menuitem">Year</button>
@@ -69,61 +58,42 @@
 
       <div class="content">
         <div class="card list-card">
+          <div class="exp-toolbar">
+            <div class="exp-toolbar-title">Recurring expenses</div>
+            <button id="editModeBtn" class="btn ghost small" type="button" aria-pressed="false">Edit</button>
+          </div>
           <div class="table-header">
-            <div class="th">Name</div>
-            <div class="th">Cost</div>
-            <div class="th">Priority</div>
-            <div class="th">Category</div>
+            <div class="th">Expense</div>
+            <div class="th th-right">Cost</div>
+            <div class="th th-center">Priority</div>
+            <div class="th th-right">Category</div>
           </div>
           <div id="expList" class="exp-list"></div>
-        </div>
-
-        <div id="addScreen" class="card add-screen hidden">
-          <h3>Add Expense</h3>
-          <form id="addForm" class="form" autocomplete="off" novalidate>
-            <input id="fDesc" placeholder="Description (e.g., Mortgage)" required />
-            <div class="row">
-              <input id="fAmount" type="text" inputmode="decimal" placeholder="Amount (monthly base)" required />
-              <!-- date removed -->
-            </div>
-            <div class="row">
-              <input id="fCategory" placeholder="Category (e.g., Housing)" />
-              <input id="fPriority" type="number" min="1" placeholder="Priority (1 = highest)" />
-            </div>
-            <div class="actions">
-              <button type="button" id="cancelAdd" class="btn ghost">Cancel</button>
-              <button type="submit" class="btn primary">Save</button>
-            </div>
-          </form>
         </div>
       </div>
     </main>
 
-    <!-- bottom nav -->
     <nav class="bottom-nav">
       <a class="nav-btn" href="index.html" id="navDashboard" aria-label="Dashboard">
         <div class="nav-icon-wrapper">
-          <!-- Home icon (SVG uses currentColor) -->
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <path d="M3 11.5L12 4l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1V11.5z" fill="currentColor"/>
           </svg>
         </div>
         <div class="nav-label">Home</div>
       </a>
-    
+
       <a class="nav-btn" href="expenditures.html" id="navExpend" aria-label="Expenditures">
         <div class="nav-icon-wrapper">
-          <!-- List / expenditures icon -->
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <path d="M4 6h16v2H4zM4 11h16v2H4zM4 16h10v2H4z" fill="currentColor"/>
           </svg>
         </div>
         <div class="nav-label">Expenditures</div>
       </a>
-    
+
       <a class="nav-btn" href="goals.html" id="navGoals" aria-label="Goals">
         <div class="nav-icon-wrapper">
-          <!-- Target / goals icon -->
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z" stroke="currentColor" stroke-width="1.4" fill="none"/>
             <path d="M21 12a9 9 0 1 0-9 9" stroke="currentColor" stroke-width="1.4" fill="none"/>
@@ -134,8 +104,7 @@
     </nav>
   </div>
 
-  <!-- page-specific code (deferred) -->
   <script src="expenditures.js" defer></script>
-  
+
 </body>
 </html>
