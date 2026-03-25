@@ -360,6 +360,20 @@ async function deleteExpenditureFromServer(id){
   }
   return data;
 }
+async function updateExpenditureOnServer(id, payload){
+  if (!supabaseClient) throw new Error('Supabase client not initialized');
+  const { data, error } = await supabaseClient
+    .from('expenditures')
+    .update(payload)
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) {
+    console.error('Update error', error);
+    throw error;
+  }
+  return data;
+}
 
 /* Realtime */
 let _realtimeSub = null;
@@ -427,6 +441,34 @@ async function deleteExpenditure(id){
     window.dispatchEvent(new CustomEvent('expendituresUpdated'));
   }
 }
+async function updateExpenditure(id, payload){
+  try {
+    const updated = await updateExpenditureOnServer(id, payload);
+    if (updated) {
+      await db.expenditures.put({
+        id: updated.id,
+        description: updated.description,
+        amount: Number(updated.amount),
+        category: updated.category,
+        priority: updated.priority,
+        date: updated.date,
+        created_at: updated.created_at
+      });
+      window.dispatchEvent(new CustomEvent('expendituresUpdated'));
+      return;
+    }
+    throw new Error('No updated row returned from server');
+  } catch(err){
+    console.error('Server update failed, updating locally', err);
+    const existing = await db.expenditures.get(id);
+    if (existing) {
+      await db.expenditures.put({ ...existing, ...payload, id });
+      window.dispatchEvent(new CustomEvent('expendituresUpdated'));
+    } else {
+      throw err;
+    }
+  }
+}
 
 /* helper to set active bottom nav button */
 function setActiveNav(id) {
@@ -447,4 +489,5 @@ window.getCurrentUser = getCurrentUser;
 window.initSupabaseSync = initSupabaseSync;
 window.addExpenditure = addExpenditure;
 window.deleteExpenditure = deleteExpenditure;
+window.updateExpenditure = updateExpenditure;
 window.syncFromSupabase = syncFromSupabase;
