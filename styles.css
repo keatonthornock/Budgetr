@@ -359,6 +359,21 @@ html,body{
   border-radius: 12px;
   border: 1px solid rgba(255,255,255,0.035);
   background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.012));
+  transition: border-color 0.2s ease, transform 0.2s ease, background 0.2s ease;
+}
+
+.exp-row:hover {
+  border-color: rgba(255,255,255,0.09);
+  background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+}
+
+.exp-edit-mode .exp-row {
+  cursor: pointer;
+}
+
+.exp-edit-mode .exp-row:hover {
+  transform: translateY(-1px);
+  border-color: rgba(123, 227, 169, 0.28);
 }
 
 .exp-title { font-size: 14px; font-weight: 600; }
@@ -403,4 +418,82 @@ html,body{
   border: 1px dashed rgba(255,255,255,0.12);
   border-radius: 12px;
   padding: 18px;
+}
+
+.modal.hidden { display: none; }
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1400;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(4, 8, 13, 0.72);
+  backdrop-filter: blur(2px);
+}
+
+.modal-panel {
+  position: relative;
+  width: min(520px, 100%);
+  background: #131a1f;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  box-shadow: 0 20px 48px rgba(2,6,23,0.6);
+  padding: 14px;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.expense-form {
+  display: grid;
+  gap: 12px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  color: #a8b6bd;
+}
+
+.field input {
+  width: 100%;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  background: rgba(8, 13, 18, 0.8);
+  color: #e6eef6;
+  padding: 10px 12px;
+  font: inherit;
+}
+
+.field input:focus {
+  outline: none;
+  border-color: rgba(123, 227, 169, 0.5);
+  box-shadow: 0 0 0 3px rgba(123, 227, 169, 0.12);
+}
+
+.form-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.modal-open {
+  overflow: hidden;
 }

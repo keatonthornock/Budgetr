@@ -16,6 +16,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const showAddBtn = document.getElementById('showAddBtn');
     const editModeBtn = document.getElementById('editModeBtn');
+    const expenseModal = document.getElementById('expenseModal');
+    const closeExpenseModalBtn = document.getElementById('closeExpenseModalBtn');
+    const expenseForm = document.getElementById('expenseForm');
+    const expenseIdInput = document.getElementById('expenseId');
+    const expenseDescriptionInput = document.getElementById('expenseDescription');
+    const expenseAmountInput = document.getElementById('expenseAmount');
+    const expensePriorityInput = document.getElementById('expensePriority');
+    const expenseCategoryInput = document.getElementById('expenseCategory');
+    const expenseModalTitle = document.getElementById('expenseModalTitle');
+    const deleteExpenseBtn = document.getElementById('deleteExpenseBtn');
+    const saveExpenseBtn = document.getElementById('saveExpenseBtn');
 
     const viewToggle = document.getElementById('viewToggle');
     const viewMenu = document.getElementById('viewMenu');
@@ -45,36 +56,32 @@ document.addEventListener('DOMContentLoaded', async () => {
       renderExpenditures();
     }
 
-    function promptForExpense() {
-      const description = window.prompt('Expense description');
-      if (description === null) return null;
-      const desc = description.trim();
-      if (!desc) {
-        alert('Please enter a description.');
-        return null;
-      }
+    function closeExpenseModal() {
+      if (!expenseModal) return;
+      expenseModal.classList.add('hidden');
+      document.body.classList.remove('modal-open');
+    }
 
-      const amountRaw = window.prompt('Amount', '0.00');
-      if (amountRaw === null) return null;
-      const amount = parseFloat(String(amountRaw).trim().replace(/\s/g, '').replace(/[$€£]/g, '').replace(/,/g, '.').replace(/[^0-9.\-]/g, ''));
-      if (Number.isNaN(amount) || amount <= 0) {
-        alert('Please enter a valid amount greater than 0.');
-        return null;
-      }
+    function openExpenseModal(item = null) {
+      if (!expenseModal || !expenseForm) return;
+      const isEdit = !!item;
 
-      const categoryRaw = window.prompt('Category', 'Uncategorized');
-      if (categoryRaw === null) return null;
-      const priorityRaw = window.prompt('Priority (1 = highest)', '99');
-      if (priorityRaw === null) return null;
+      if (expenseModalTitle) expenseModalTitle.textContent = isEdit ? 'Edit Expense' : 'Add Expense';
+      if (saveExpenseBtn) saveExpenseBtn.textContent = isEdit ? 'Save Changes' : 'Save Expense';
 
-      return {
-        description: desc,
-        amount,
-        category: categoryRaw.trim() || 'Uncategorized',
-        priority: parseInt(priorityRaw, 10) || 99,
-        date: new Date().toISOString(),
-        created_at: new Date().toISOString()
-      };
+      expenseForm.reset();
+      if (expenseIdInput) expenseIdInput.value = isEdit ? String(item.id) : '';
+      if (expenseDescriptionInput) expenseDescriptionInput.value = isEdit ? String(item.description || '') : '';
+      if (expenseAmountInput) expenseAmountInput.value = isEdit ? String(item.amount || '') : '';
+      if (expensePriorityInput) expensePriorityInput.value = isEdit ? String(item.priority || 1) : '1';
+      if (expenseCategoryInput) expenseCategoryInput.value = isEdit ? String(item.category || 'Uncategorized') : 'Uncategorized';
+      if (deleteExpenseBtn) deleteExpenseBtn.classList.toggle('hidden', !isEdit);
+
+      expenseModal.classList.remove('hidden');
+      document.body.classList.add('modal-open');
+      requestAnimationFrame(() => {
+        if (expenseDescriptionInput) expenseDescriptionInput.focus();
+      });
     }
 
     let _expendituresRenderToken = 0;
@@ -82,24 +89,96 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (showAddBtn) {
       showAddBtn.addEventListener('click', async () => {
-        const payload = promptForExpense();
-        if (!payload) return;
-
-        showAddBtn.disabled = true;
-        try {
-          await addExpenditure(payload);
-          renderExpenditures();
-        } catch (err) {
-          console.error('Add failed:', err);
-          alert('Could not save expense. Please try again.');
-        } finally {
-          showAddBtn.disabled = false;
-        }
+        openExpenseModal();
       });
     }
 
     if (editModeBtn) {
       editModeBtn.addEventListener('click', () => setEditMode(!editMode));
+    }
+
+    if (closeExpenseModalBtn) {
+      closeExpenseModalBtn.addEventListener('click', () => closeExpenseModal());
+    }
+
+    if (expenseModal) {
+      expenseModal.addEventListener('click', (e) => {
+        const closer = e.target.closest ? e.target.closest('[data-close-modal="true"]') : null;
+        if (closer) closeExpenseModal();
+      });
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && expenseModal && !expenseModal.classList.contains('hidden')) {
+        closeExpenseModal();
+      }
+    });
+
+    if (expenseForm) {
+      expenseForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const expenseId = Number(expenseIdInput?.value || '');
+        const description = (expenseDescriptionInput?.value || '').trim();
+        const amount = Number(expenseAmountInput?.value);
+        const priority = Number.parseInt(expensePriorityInput?.value || '1', 10);
+        const category = (expenseCategoryInput?.value || '').trim() || 'Uncategorized';
+
+        if (!description) {
+          alert('Please enter an expense name.');
+          return;
+        }
+        if (!Number.isFinite(amount) || amount <= 0) {
+          alert('Please enter a valid amount greater than 0.');
+          return;
+        }
+        if (!Number.isInteger(priority) || priority < 1) {
+          alert('Priority must be a number starting at 1.');
+          return;
+        }
+
+        const payload = {
+          description,
+          amount,
+          category,
+          priority
+        };
+
+        if (saveExpenseBtn) saveExpenseBtn.disabled = true;
+        try {
+          if (expenseId) {
+            await updateExpenditure(expenseId, payload);
+          } else {
+            await addExpenditure({
+              ...payload,
+              date: new Date().toISOString(),
+              created_at: new Date().toISOString()
+            });
+          }
+          closeExpenseModal();
+          renderExpenditures();
+        } catch (err) {
+          console.error('Save failed:', err);
+          alert('Could not save expense. Please try again.');
+        } finally {
+          if (saveExpenseBtn) saveExpenseBtn.disabled = false;
+        }
+      });
+    }
+
+    if (deleteExpenseBtn) {
+      deleteExpenseBtn.addEventListener('click', async () => {
+        const id = Number(expenseIdInput?.value || '');
+        if (!id) return;
+        if (!confirm('Delete this entry?')) return;
+        try {
+          await deleteExpenditure(id);
+          closeExpenseModal();
+          renderExpenditures();
+        } catch (err) {
+          console.error('Delete failed:', err);
+          alert('Could not delete expense. Please try again.');
+        }
+      });
     }
 
     (async function wireViewToggleRobust() {
@@ -269,17 +348,29 @@ document.addEventListener('DOMContentLoaded', async () => {
           _expListDelegateAttached = true;
           el.addEventListener('click', async (e) => {
             const btn = e.target.closest ? e.target.closest('.del') : (e.target.classList && e.target.classList.contains('del') ? e.target : null);
-            if (!btn) return;
-            const id = Number(btn.dataset.id);
-            if (!id) return;
-            if (!confirm('Delete this entry?')) return;
-            try {
-              await deleteExpenditure(id);
-            } catch (err) {
-              console.error('Delete failed, deleting locally', err);
-              await db.expenditures.delete(id);
+            if (btn) {
+              e.stopPropagation();
+              const id = Number(btn.dataset.id);
+              if (!id) return;
+              if (!confirm('Delete this entry?')) return;
+              try {
+                await deleteExpenditure(id);
+              } catch (err) {
+                console.error('Delete failed, deleting locally', err);
+                await db.expenditures.delete(id);
+              }
+              renderExpenditures();
+              return;
             }
-            renderExpenditures();
+
+            if (!editMode) return;
+            const row = e.target.closest ? e.target.closest('.exp-row') : null;
+            if (!row) return;
+            const rowId = Number(row.dataset.id);
+            if (!rowId) return;
+            const item = await db.expenditures.get(rowId);
+            if (!item) return;
+            openExpenseModal(item);
           });
         }
 
